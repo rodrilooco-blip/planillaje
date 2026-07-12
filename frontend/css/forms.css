@@ -1,0 +1,207 @@
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 10px;
+}
+
+.form-section {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.form-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--emergencia);
+  display: inline-block;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--gray-500);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 2px rgba(44, 62, 80, 0.1);
+}
+
+.form-group input:disabled {
+  background: var(--gray-100);
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+.form-group .input-wrapper {
+  position: relative;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.form-messages {
+  padding: 0 20px 12px;
+}
+
+@media (max-width: 768px) {
+  .sidebar { width: 100%; position: relative; top: 0; border-right: none; border-bottom: 1px solid var(--gray-200); max-height: 200px; }
+  .content { margin-left: 0; }
+  .form-grid { grid-template-columns: 1fr; }
+  .app-container { flex-direction: column; }
+}
+
+.autocomplete-dropdown {
+  position: absolute;
+  z-index: 9999;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: 180px;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.ac-item {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.ac-item:last-child { border-bottom: none; }
+.ac-item.active, .ac-item:hover { background: #e8f0fe; }
+
+.ac-code { font-weight: 600; color: var(--primary-light); white-space: nowrap; min-width: 45px; font-size: 11px; }
+.ac-desc { color: var(--gray-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+
+.recent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.recent-header h3 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.recent-info {
+  font-size: 12px;
+  color: var(--gray-400);
+  font-weight: normal;
+}
+
+.recent-table-wrapper {
+  overflow-x: auto;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+}
+
+.recent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.recent-table th {
+  background: var(--primary);
+  color: var(--white);
+  text-align: left;
+  padding: 7px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recent-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-500);
+}
+
+.recent-table tr:hover td {
+  background: var(--gray-100);
+}
+
+.recent-table .td-center {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 20px;
+}
+
+.recent-table .td-actions {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.btn-sm {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 14px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+
+.btn-edit:hover { background: #d4e6f1; }
+.btn-delete:hover { background: #fadbd8; }
+
+.form-group input.field-error,
+.form-group select.field-error {
+  border-color: #e74c3c;
+  background: #fef0ef;
+  box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.15);
+}
+
+.form-group label.label-error {
+  color: #e74c3c;
+}
+
+.form-group input.field-error:focus,
+.form-group select.field-error:focus {
+  border-color: #c0392b;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.2);
+}

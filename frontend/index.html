@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Planillaje</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/forms.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-logo">
+      <span class="logo-icon">&#x1F4CB;</span>
+      <h1>Sistema de Planillaje</h1>
+    </div>
+    <div class="header-center">
+      <div class="user-type-selector">
+        <button class="user-type-btn active" data-user="general" id="btnUserGeneral">General</button>
+        <button class="user-type-btn" data-user="medico" id="btnUserMedico">M&eacute;dico</button>
+      </div>
+    </div>
+    <div class="header-status">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Conectando...</span>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-section"><div class="sidebar-title">M&oacute;dulos</div></div>
+      <div class="menu-principal" id="menuPrincipal"></div>
+    </nav>
+
+    <main class="content" id="contentArea">
+      <div class="welcome-screen" id="welcomeScreen">
+        <div class="welcome-icon">&#x1F4CB;</div>
+        <h2>Bienvenido</h2>
+        <p>Seleccione un m&oacute;dulo en el men&uacute; lateral.</p>
+        <div class="welcome-info">
+          <div class="info-card"><span class="info-card-icon">&#x1F691;</span><h3>Emergencia</h3><p>Planillas de emergencia</p></div>
+          <div class="info-card"><span class="info-card-icon">&#x1F3E8;</span><h3>Hospitalizaci&oacute;n</h3><p>Planillas de hospitalizaci&oacute;n</p></div>
+        </div>
+      </div>
+
+      <div class="form-container" id="formContainer" style="display:none;">
+        <div class="form-header">
+          <h2 id="formTitle">Nuevo Registro</h2>
+          <button class="btn btn-secondary" id="btnVolver">&larr; Volver</button>
+        </div>
+        <div class="form-body" id="formBody">
+          <div id="formLoader" class="loader">Cargando...</div>
+          <form id="mainForm" style="display:none;" autocomplete="off">
+            <div id="formFields"></div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" id="btnGuardar">&#x1F4BE; Guardar</button>
+              <button type="button" class="btn btn-secondary" id="btnLimpiar">Limpiar</button>
+            </div>
+          </form>
+        </div>
+        <div class="form-messages" id="formMessages"></div>
+      </div>
+
+      <div id="recentTableContainer" style="display:none; margin-top: 16px;">
+        <div class="recent-header">
+          <h3>&#x1F4CB; &Uacute;ltimos Registros <span id="recentInfo" class="recent-info"></span></h3>
+        </div>
+        <div class="recent-table-wrapper">
+          <table class="recent-table">
+            <thead>
+              <tr>
+                <th>#</th><th>No. Paciente</th><th>Identificaci&oacute;n</th><th>Apellidos</th><th>Procedimiento</th><th>Fecha</th><th>Acci&oacute;n</th>
+              </tr>
+            </thead>
+            <tbody id="recentBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/autocomplete.js"></script>
+  <script src="js/reglas.js"></script>
+  <script src="js/menu.js"></script>
+  <script src="js/recentTable.js"></script>
+  <script src="js/formBuilder.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

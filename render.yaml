@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: planillaje
+    env: node
+    region: ohio
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: NODE_VERSION
+        value: 18.18.0
+      - key: GOOGLE_SERVICE_ACCOUNT_PATH
+        value: /etc/secrets/credentials.json
+      - key: SHEET_HOSP_HOJAS
+        value: IESS-G-HOS,IESS-C-HOS,SPPAT-HOS,ISSPOL-HOS,ISSFA-HOS
+      - key: SHEET_EMERG_HOJAS
+        value: IESS-G-EMERG,IESS-C-EMERG,SPPAT-EMERG,ISSPOL-EMERG,ISSFA-EMERG
+      - key: SHEET_CAT_HOJAS
+        value: Procedimientos,Diagnosticos,Medicamentos,Beneficiario,Dependencia,TipoExamen,Intrahospital
+      - key: CACHE_REFRESH_MINUTOS
+        value: 30
