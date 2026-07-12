@@ -57,6 +57,39 @@ const Autocomplete = {
 
   async asegurarCatalogo(nombre) {
     if (catalogosLocal[nombre]) return;
+
+    const nombres = nombre.split(',').map(s => s.trim());
+    if (nombres.length > 1) {
+      // Load all catalogs first
+      for (const n of nombres) {
+        if (!catalogosLocal[n]) {
+          try {
+            const res = await API.getCatalogoCompleto(n);
+            catalogosLocal[n] = res.datos || [];
+          } catch (err) {
+            console.error('Error cargando cat\u00e1logo:', err);
+            catalogosLocal[n] = [];
+          }
+        }
+      }
+      // Build combined Trie
+      const trie = new Trie();
+      for (const n of nombres) {
+        for (const item of catalogosLocal[n]) {
+          const codigo = (item.codigo || item.cod || item.código || '').toLowerCase();
+          const descripcion = (item.descripcion || item.descripción || item.nombre || item.desc || '').toLowerCase();
+          if (codigo) trie.insertar(codigo, item);
+          const palabras = descripcion.split(/\s+/).filter(w => w.length >= 3);
+          for (const palabra of palabras) {
+            trie.insertar(palabra, item);
+          }
+        }
+      }
+      tries[nombre] = trie;
+      catalogosLocal[nombre] = []; // marker that combined name is loaded
+      return;
+    }
+
     try {
       const res = await API.getCatalogoCompleto(nombre);
       catalogosLocal[nombre] = res.datos || [];

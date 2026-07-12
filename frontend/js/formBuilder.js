@@ -365,14 +365,14 @@ const FormBuilder = {
 
   getCatalogoNombre(nombre) {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
-    if (n.includes('PROCEDIMIENTO')) return 'procedimientos';
+    if (n.includes('PROCEDIMIENTO')) return 'procedimientos,medicamentos';
     if (n.includes('DIAGN\u00d3STICO') || n.includes('DIAGNOSTICO')) return 'diagnosticos';
     if (n.startsWith('DG.') || n.startsWith('DG ')) return 'diagnosticos';
     if (n.includes('MEDICAMENTO')) return 'medicamentos';
     if (n.includes('EXAMEN')) return 'tipoexamen';
     if (n.includes('INTRAHOSPITAL')) return 'intrahospital';
     if (n.includes('BENEFICIARIO')) return 'beneficiario';
-    return 'procedimientos';
+    return 'procedimientos,medicamentos';
   },
 
   getValorFijo(nombre) {
