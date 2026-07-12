@@ -142,6 +142,8 @@ const FormBuilder = {
           optionsHtml = '<option value="">Seleccione dependencia...</option>';
         }
         inputHtml = `<select id="f-${key}" name="${key}">${optionsHtml}</select>`;
+      } else if (this.esCampoNombreLargo(nombre)) {
+        inputHtml = `<textarea id="f-${key}" name="${key}" rows="4" placeholder="${labelText}"></textarea>`;
       } else if (this.esCampoCatalogo(nombre)) {
         const catalogo = this.getCatalogoNombre(nombre);
         inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="${catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${labelText}"></div>`;
@@ -152,7 +154,8 @@ const FormBuilder = {
         inputHtml = `<input type="text" id="f-${key}" name="${key}" placeholder="${labelText}">`;
       }
 
-      seccionesHtml[seccionId] += `<div class="form-group"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
+      const esNombreLargo = this.esCampoNombreLargo(nombre);
+      seccionesHtml[seccionId] += `<div class="form-group${esNombreLargo ? ' full-width' : ''}"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
       this.fieldMap[key] = nombre;
     });
 
@@ -250,13 +253,13 @@ const FormBuilder = {
     if (existing) existing.remove();
 
     const html = `
-      <div id="buscadorPacientes" style="margin-bottom:12px;padding:10px;background:#e8f4fd;border-radius:6px;border:1px solid #b8d4e8">
-        <strong style="font-size:14px">Buscar paciente desde Emergencia</strong>
-        <div style="display:flex;gap:8px;margin-top:6px">
-          <input type="text" id="inputBuscarPaciente" placeholder="C\u00e9dula o nombres..." style="flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:4px">
-          <button id="btnBuscarPaciente" style="padding:6px 16px;background:#007bff;color:#fff;border:none;border-radius:4px;cursor:pointer">Buscar</button>
+      <div id="buscadorPacientes" class="buscador-pacientes">
+        <strong>Buscar paciente desde Emergencia</strong>
+        <div class="buscador-row">
+          <input type="text" id="inputBuscarPaciente" placeholder="C\u00e9dula o nombres...">
+          <button id="btnBuscarPaciente" class="btn-buscar">Buscar</button>
         </div>
-        <div id="resultadosBusqueda" style="margin-top:6px;max-height:200px;overflow-y:auto;display:none"></div>
+        <div id="resultadosBusqueda" class="resultados-busqueda"></div>
       </div>`;
     container.insertAdjacentHTML('afterbegin', html);
 
@@ -267,12 +270,12 @@ const FormBuilder = {
     const buscar = async () => {
       const q = input.value.trim();
       if (q.length < 3) { resultsDiv.style.display = 'none'; return; }
-      resultsDiv.innerHTML = '<div style="padding:8px;color:#666">Buscando...</div>';
+      resultsDiv.innerHTML = '<div class="result-msg">Buscando...</div>';
       resultsDiv.style.display = 'block';
       try {
         const res = await API.buscarPacientes(q);
         if (!res.datos || res.datos.length === 0) {
-          resultsDiv.innerHTML = '<div style="padding:8px;color:#999">Sin resultados</div>';
+          resultsDiv.innerHTML = '<div class="result-msg">Sin resultados</div>';
           return;
         }
         let listHtml = '';
@@ -280,10 +283,10 @@ const FormBuilder = {
           const id = item.datos.IDENTIFICACION_BENEFICIARIO || item.datos.IDENTIFICACION_AFILIADO || '';
           const apell = item.datos.APELLIDOS_BENEFICIARIO || item.datos.APELLIDOS || '';
           const nombres = item.datos.NOMBRES || item.datos.NOMBRE || '';
-          listHtml += `<div class="result-item" data-idx="${idx}" style="padding:6px 10px;cursor:pointer;border-bottom:1px solid #eee;display:flex;gap:12px">
-            <span style="font-weight:bold;min-width:120px">${id}</span>
-            <span>${apell} ${nombres}</span>
-            <span style="color:#888;font-size:12px;margin-left:auto">${item.hoja}</span>
+          listHtml += `<div class="result-item" data-idx="${idx}">
+            <span class="result-id">${id}</span>
+            <span class="result-name">${apell} ${nombres}</span>
+            <span class="result-hoja">${item.hoja}</span>
           </div>`;
         });
         resultsDiv.innerHTML = listHtml;
@@ -295,11 +298,10 @@ const FormBuilder = {
             input.value = '';
             Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Paciente cargado desde Emergencia');
           });
-          el.addEventListener('mouseenter', () => el.style.background = '#e0e0e0');
-          el.addEventListener('mouseleave', () => el.style.background = '');
+
         });
       } catch (err) {
-        resultsDiv.innerHTML = '<div style="padding:8px;color:#d00">Error: ' + err.message + '</div>';
+        resultsDiv.innerHTML = '<div class="result-msg" style="color:#d00">Error: ' + err.message + '</div>';
       }
     };
 
@@ -348,6 +350,12 @@ const FormBuilder = {
   esNoPaciente(nombre) {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     return n.includes('NO. PACIENTE') || n.includes('NO PACIENTE') || n.startsWith('NO.');
+  },
+
+  esCampoNombreLargo(nombre) {
+    const n = this.limpiarNombreColumna(nombre).toUpperCase();
+    return n.includes('NOMBRE_DEL_PROCEDIMIENTO') || n.includes('NOMBRE_PROCEDIMIENTO') ||
+           n.includes('NOMBRE_DEL_MEDICAMENTO') || n.includes('NOMBRE_MEDICAMENTO');
   },
 
   esCampoNumero(nombre) {

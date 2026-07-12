@@ -187,7 +187,7 @@ const Autocomplete = {
       const descripcion = item[colDesc] || item.descripcion || item.descripción || item.nombre || item.desc || '';
       const div = document.createElement('div');
       div.className = 'ac-item' + (idx === 0 ? ' active' : '');
-      div.innerHTML = `<span class="ac-code">${this.escape(codigo)}</span><span class="ac-desc">${this.escape(descripcion.substring(0, 60))}</span>`;
+      div.innerHTML = `<span class="ac-code">${this.escape(codigo)}</span><span class="ac-desc">${this.escape(descripcion)}</span>`;
       div.addEventListener('mousedown', (e) => {
         e.preventDefault();
         this.seleccionar(codigo, descripcion);
