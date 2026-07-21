@@ -179,9 +179,18 @@ const FormBuilder = {
 
     container.innerHTML = html;
 
-    document.querySelectorAll('#formFields input[data-catalogo]').forEach(input => {
-      const targetName = input.dataset.targetdesc;
-      if (targetName) Autocomplete.configurar(input, input.dataset.catalogo, 'codigo', 'descripcion');
+    // Auto-fill targetdesc: si un campo catálogo del header tiene un campo NOMBRE correspondiente, linkearlo
+    const headerCatalogoInputs = document.querySelectorAll('#formFields > .form-section input[data-catalogo]');
+    headerCatalogoInputs.forEach(input => {
+      const inputKey = input.name;
+      const nombreKey = Object.keys(this.fieldMap).find(k =>
+        (k.includes('NOMBRE') && (
+          (inputKey.includes('PROCEDIMIENTO') && k.includes('PROCEDIMIENTO') && !k.includes('CODIGO')) ||
+          (inputKey.includes('DIAGNOSTICO') && k.includes('DIAGNOSTICO') && !k.includes('DG')) ||
+          (inputKey.includes('MEDICAMENTO') && k.includes('MEDICAMENTO') && !k.includes('CODIGO'))
+        ))
+      );
+      if (nombreKey) input.dataset.targetdesc = nombreKey;
     });
 
     if (this.camposRepetibles.length > 0) {
