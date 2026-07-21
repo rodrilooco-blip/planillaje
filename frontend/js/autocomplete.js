@@ -221,10 +221,15 @@ const Autocomplete = {
       input.dataset.descripcion = descripcion;
       const targetName = input.dataset.targetdesc;
       if (targetName) {
-        const target = document.querySelector(`[name="${targetName}"]`);
+        let target = document.querySelector(`[name="${targetName}"]`);
+        if (!target) {
+          const tr = input.closest('tr');
+          if (tr) target = tr.querySelector(`[data-item-key="${targetName}"]`);
+        }
         if (target) target.value = descripcion;
       }
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const evt = new Event('input', { bubbles: true });
+      input.dispatchEvent(evt);
     }
     this.cerrar();
   },

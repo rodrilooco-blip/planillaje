@@ -37,6 +37,22 @@ const App = {
     document.getElementById('btnLimpiar').addEventListener('click', () => this.limpiarFormulario());
     document.getElementById('btnUserGeneral').addEventListener('click', () => this.setUserType('general'));
     document.getElementById('btnUserMedico').addEventListener('click', () => this.setUserType('medico'));
+    document.getElementById('btnExportarExcel')?.addEventListener('click', () => this.exportarExcel());
+  },
+
+  async exportarExcel() {
+    if (!FormBuilder.currentTipo || !FormBuilder.currentHoja) return;
+    try {
+      const btn = document.getElementById('btnExportarExcel');
+      if (btn) { btn.disabled = true; btn.textContent = 'Exportando...'; }
+      await API.exportarExcel(FormBuilder.currentTipo, FormBuilder.currentHoja);
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Excel exportado correctamente');
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F4C4; Exportar Excel'; }
+    } catch (err) {
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al exportar: ' + err.message);
+      const btn = document.getElementById('btnExportarExcel');
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F4C4; Exportar Excel'; }
+    }
   },
 
   async onSelectHoja(tipo, hoja) {

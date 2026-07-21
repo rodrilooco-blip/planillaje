@@ -53,6 +53,18 @@ async function agregarFila(sheetId, rango, valores) {
   return res.data;
 }
 
+async function agregarFilas(sheetId, rango, filasValores) {
+  const client = await getSheetsClient();
+  const res = await client.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: rango,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    resource: { values: filasValores },
+  });
+  return res.data;
+}
+
 async function actualizarFila(sheetId, hoja, numeroFila, valores) {
   const client = await getSheetsClient();
   const ultimaColumna = columnToLetter(valores.length || 26);
@@ -126,6 +138,7 @@ module.exports = {
   leerSheet,
   leerEncabezados,
   agregarFila,
+  agregarFilas,
   actualizarFila,
   eliminarFila,
   getSheetId,

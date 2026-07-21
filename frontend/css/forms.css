@@ -183,6 +183,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .recent-header h3 {
@@ -193,6 +195,32 @@
   align-items: center;
   gap: 8px;
 }
+
+.recent-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-export-excel {
+  background: var(--success);
+  color: var(--white);
+  font-size: 12px;
+  padding: 7px 14px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  border-radius: var(--radius);
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.btn-export-excel:hover:not(:disabled) {
+  background: var(--success-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(26,138,74,0.3);
+}
+
+.btn-export-excel:disabled { opacity: 0.6; cursor: wait; }
 
 .recent-info {
   font-size: 12px;
@@ -368,4 +396,123 @@
   color: var(--gray-400);
   text-align: center;
   font-size: 13px;
+}
+
+/* ===== TABLA DE INSUMOS / PROCEDIMIENTOS ===== */
+.items-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  background: var(--white);
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.items-table th {
+  background: var(--gray-100);
+  color: var(--gray-500);
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+
+.items-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: top;
+}
+
+.items-table tbody tr:hover td {
+  background: var(--gray-50);
+}
+
+.items-table .td-num {
+  text-align: center;
+  font-weight: 600;
+  color: var(--gray-400);
+  width: 36px;
+}
+
+.items-table .td-codigo { min-width: 130px; }
+.items-table .td-nombre { min-width: 240px; }
+.items-table .td-accion { text-align: center; width: 50px; }
+
+.items-table input,
+.items-table textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--gray-500);
+  transition: all var(--transition);
+}
+
+.items-table input:focus,
+.items-table textarea:focus {
+  outline: none;
+  border-color: var(--hospitalizacion);
+  box-shadow: 0 0 0 2px rgba(26, 107, 160, 0.12);
+}
+
+.items-table textarea {
+  resize: vertical;
+  min-height: 32px;
+  line-height: 1.4;
+  background: var(--gray-50);
+  color: var(--gray-500);
+}
+
+.items-table .btn-quitar-fila {
+  background: transparent;
+  border: 1px solid var(--gray-200);
+  color: var(--danger);
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all var(--transition);
+  padding: 0;
+}
+
+.items-table .btn-quitar-fila:hover {
+  background: var(--danger);
+  color: var(--white);
+  border-color: var(--danger);
+}
+
+.btn-agregar-fila {
+  margin-top: 10px;
+  padding: 7px 16px;
+  font-size: 12px;
+  background: var(--gray-100);
+  color: var(--hospitalizacion);
+  border: 1px dashed var(--hospitalizacion);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all var(--transition);
+}
+
+.btn-agregar-fila:hover {
+  background: var(--hospitalizacion-bg);
+}
+
+@media (max-width: 768px) {
+  .items-table-wrapper { font-size: 11px; }
+  .items-table th, .items-table td { padding: 5px 6px; }
+  .items-table .td-codigo, .items-table .td-nombre { min-width: 100px; }
 }

@@ -6,18 +6,19 @@ const { lecturas } = require('./src/middleware/rateLimiter');
 const catalogoCache = require('./src/services/catalogoCache');
 const catalogosRouter = require('./src/routes/catalogos');
 const planosRouter = require('./src/routes/planos');
+const syncService = require('./src/services/syncService');
 
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.resolve(__dirname, '../frontend')));
 
 app.get('/api/health', lecturas, (req, res) => {
   res.json({
     estado: 'ok',
     catalogoActualizado: catalogoCache.getLastUpdated(),
-    version: '1.0.0',
+    version: '2.0.0',
   });
 });
 
@@ -54,4 +55,5 @@ app.listen(config.port, async () => {
   console.log(`Servidor iniciado en puerto ${config.port}`);
   console.log(`Health check: http://localhost:${config.port}/api/health`);
   await preCargarCatalogos();
+  syncService.iniciarSyncAutomatico(60000);
 });

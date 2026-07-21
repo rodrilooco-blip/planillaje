@@ -3,5 +3,6 @@ node_modules
 credentials.json
 backend/cache
 backend/err.log
+backend/data
 *.log
 .DS_Store

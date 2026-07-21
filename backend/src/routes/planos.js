@@ -3,6 +3,10 @@ const sheets = require('../services/googleSheets');
 const reglas = require('../services/reglasNegocio');
 const config = require('../config/env');
 const { lecturas, escrituras } = require('../middleware/rateLimiter');
+const storage = require('../services/sqliteStorage');
+const syncService = require('../services/syncService');
+const XLSX = require('xlsx');
+const crypto = require('crypto');
 
 const router = Router();
 
@@ -93,7 +97,12 @@ router.get('/:tipo/:hoja/columnas', lecturas, async (req, res) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
-    const columnas = await sheets.getColumnasSheet(sheetId, hoja);
+    let encabezados = storage.obtenerEncabezados(tipo, hoja);
+    if (!encabezados) {
+      encabezados = await sheets.leerEncabezados(sheetId, hoja);
+      if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
+    }
+    const columnas = encabezados.map((nombre, i) => ({ index: i, nombre: nombre || '', tipo: 'texto' }));
     const extras = reglas.obtenerColumnasAdicionales(hoja);
     res.json({ columnas, extras });
   } catch (err) {
@@ -107,17 +116,39 @@ router.get('/:tipo/:hoja', lecturas, async (req, res) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
+    // Intentar leer desde SQLite primero (instantáneo)
+    let encabezados = storage.obtenerEncabezados(tipo, hoja);
+    const registrosLocal = storage.obtenerRegistros(tipo, hoja, 100000);
+
+    if (encabezados && registrosLocal.length > 0) {
+      return res.json({
+        encabezados,
+        registros: registrosLocal.map(r => ({
+          fila: r.fila,
+          datos: r.datos,
+          batchId: r.batchId,
+          synced: r.synced,
+        })),
+        total: registrosLocal.length,
+        source: 'sqlite',
+      });
+    }
+
+    // Fallback a Google Sheets
     const datos = await sheets.leerSheet(sheetId, `${hoja}!A:Z`);
     if (datos.length === 0) return res.json({ encabezados: [], registros: [] });
 
-    const encabezados = datos[0];
-    const registros = datos.slice(1).map((fila, idx) => ({
-      fila: idx + 2,
-      datos: mapearFilaAObjeto(encabezados, fila),
-    }));
+    encabezados = datos[0];
+    storage.guardarEncabezados(tipo, hoja, encabezados);
+
+    const registros = datos.slice(1).map((fila, idx) => {
+      const obj = mapearFilaAObjeto(encabezados, fila);
+      storage.upsertPorFilaGs(tipo, hoja, idx + 2, obj);
+      return { fila: idx + 2, datos: obj };
+    });
 
     registros.reverse();
-    res.json({ encabezados, registros, total: registros.length });
+    res.json({ encabezados, registros, total: registros.length, source: 'google-sheets' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -151,27 +182,14 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
     }
 
     const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
-    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
 
-    const filaValores = encabezados.map(h => {
-      const hl = normalizarKey(h);
-      if (dataCompleta[hl]) return dataCompleta[hl];
-      return Object.keys(dataCompleta).find(k => hl.includes(k) || k.includes(hl))
-        ? dataCompleta[Object.keys(dataCompleta).find(k => hl.includes(k) || k.includes(hl))]
-        : '';
-    });
+    // Guardar en SQLite (instantáneo)
+    const guardado = storage.guardarRegistro(tipo, hoja, dataCompleta);
 
-    const ultimoNumero = await sheets.getUltimoNumeroPaciente(sheetId, hoja);
-    const colNoPaciente = encabezados.findIndex(h => {
-      const r = (h || '').toUpperCase();
-      return r.includes('NO. PACIENTE') || r.includes('NO PACIENTE') || r.startsWith('NO.');
-    });
-    if (colNoPaciente >= 0 && !filaValores[colNoPaciente]) {
-      filaValores[colNoPaciente] = String(ultimoNumero + 1);
-    }
+    // Sincronizar con Google Sheets en background
+    syncService.pushPendientes().catch(err => console.error('[SYNC] Error push:', err.message));
 
-    await sheets.agregarFila(sheetId, `${hoja}!A:Z`, filaValores);
-    res.json({ exito: true, mensaje: 'Registro guardado', fila: ultimoNumero + 1 });
+    res.json({ exito: true, mensaje: 'Registro guardado', id: guardado.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -184,15 +202,9 @@ router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
 
   try {
     const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
-    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
-
-    const filaValores = encabezados.map(h => {
-      const hl = normalizarKey(h);
-      return dataCompleta[hl] || Object.keys(dataCompleta).find(k => hl.includes(k) || k.includes(hl))
-        ? dataCompleta[Object.keys(dataCompleta).find(k => hl.includes(k) || k.includes(hl))] : '';
-    });
-
-    await sheets.actualizarFila(sheetId, hoja, parseInt(fila, 10), filaValores);
+    const id = parseInt(fila, 10);
+    storage.actualizarRegistro(tipo, hoja, id, dataCompleta);
+    syncService.pushPendientes().catch(err => console.error('[SYNC] Error push update:', err.message));
     res.json({ exito: true, mensaje: 'Registro actualizado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -205,44 +217,156 @@ router.delete('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
-    const gSheetId = await sheets.getSheetId(sheetId, hoja);
-    if (gSheetId === null || gSheetId === undefined) {
-      return res.status(404).json({ error: 'Hoja no encontrada' });
-    }
-
-    const client = await sheets.getSheetsClient();
-    await client.spreadsheets.batchUpdate({
-      spreadsheetId: sheetId,
-      resource: {
-        requests: [{
-          deleteDimension: {
-            range: {
-              sheetId: gSheetId,
-              dimension: 'ROWS',
-              startIndex: parseInt(fila, 10) - 1,
-              endIndex: parseInt(fila, 10),
-            },
-          },
-        }],
-      },
-    });
-
+    const id = parseInt(fila, 10);
+    storage.eliminarRegistro(tipo, hoja, id);
     res.json({ exito: true, mensaje: 'Registro eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/:tipo/:hoja/:fila', lecturas, async (req, res) => {
+router.get('/:tipo/:hoja/:fila', lecturas, async (req, res, next) => {
   const { tipo, hoja, fila } = req.params;
+  // Si fila no es numérico, probar con la siguiente ruta coincidente (exportar-excel etc.)
+  if (!/^\d+$/.test(fila)) return next();
+
   const sheetId = getSpreadsheetId(tipo);
-  if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
+  if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
+    const id = parseInt(fila, 10);
+    const reg = storage.obtenerRegistro(tipo, hoja, id);
+    if (reg) return res.json({ fila: id, datos: reg.datos });
+
     const encabezados = await sheets.leerEncabezados(sheetId, hoja);
     const filaDatos = await sheets.leerFila(sheetId, hoja, parseInt(fila, 10));
     const obj = mapearFilaAObjeto(encabezados, filaDatos);
     res.json({ fila: parseInt(fila, 10), datos: obj });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====== BATCH: guardar múltiples filas (1 paciente, N insumos) ======
+router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
+  const { tipo, hoja } = req.params;
+  const sheetId = getSpreadsheetId(tipo);
+  if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
+  if (!validarHoja(tipo, hoja)) return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
+
+  const { datosPaciente, items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Se requiere al menos 1 item' });
+  }
+  if (!datosPaciente || typeof datosPaciente !== 'object') {
+    return res.status(400).json({ error: 'datosPaciente requerido' });
+  }
+
+  try {
+    const errores = reglas.validarData(datosPaciente);
+    if (errores.length > 0) return res.status(400).json({ error: 'Datos inv\u00e1lidos', detalles: errores });
+
+    let encabezados = storage.obtenerEncabezados(tipo, hoja);
+    if (!encabezados) {
+      encabezados = await sheets.leerEncabezados(sheetId, hoja);
+      storage.guardarEncabezados(tipo, hoja, encabezados);
+    }
+
+    const ultimoNumero = storage.siguienteNumeroPaciente(tipo, hoja);
+    const batchId = crypto.randomUUID();
+
+    const filasParaGuardar = items.map((item, idx) => {
+      const merged = { ...datosPaciente, ...item };
+      return reglas.aplicarReglasFijas(hoja, merged);
+    });
+
+    const colNoPaciente = encabezados.findIndex(h => {
+      const r = (h || '').toUpperCase();
+      return r.includes('NO. PACIENTE') || r.includes('NO PACIENTE') || r.startsWith('NO.');
+    });
+
+    if (colNoPaciente >= 0) {
+      const numAsignado = String(ultimoNumero + 1);
+      filasParaGuardar.forEach(d => {
+        const keys = Object.keys(d);
+        const noKey = keys.find(k => k.includes('NO_PACIENTE') || k.includes('NUMERO_PACIENTE'));
+        if (noKey && !d[noKey]) d[noKey] = numAsignado;
+      });
+    }
+
+    const ids = storage.guardarBatch(tipo, hoja, filasParaGuardar, batchId);
+
+    // Sincronizar con Google Sheets en background
+    syncService.pushPendientes().catch(err => console.error('[BATCH] Sync error:', err.message));
+
+    res.json({
+      exito: true,
+      mensaje: `${items.length} registro(s) guardado(s)`,
+      batchId,
+      ids,
+      proximoNumero: ultimoNumero + items.length + 1,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====== EXPORTAR A EXCEL ======
+router.get('/:tipo/:hoja/exportar-excel', lecturas, async (req, res) => {
+  const { tipo, hoja } = req.params;
+  if (!validarHoja(tipo, hoja)) return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
+
+  try {
+    let encabezados = storage.obtenerEncabezados(tipo, hoja);
+    if (!encabezados) {
+      const sheetId = getSpreadsheetId(tipo);
+      if (sheetId) {
+        encabezados = await sheets.leerEncabezados(sheetId, hoja);
+        if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
+      }
+    }
+
+    const registros = storage.obtenerRegistros(tipo, hoja, 100000);
+    const datos = registros.map(r => r.datos);
+
+    const wb = XLSX.utils.book_new();
+    let ws;
+    if (encabezados && encabezados.length) {
+      const rows = [encabezados.map(h => normalizarKey(h))];
+      for (const d of datos) {
+        const row = rows[0].map(k => {
+          if (d[k]) return d[k];
+          const mk = Object.keys(d).find(dk => dk.includes(k) || k.includes(dk));
+          return mk ? d[mk] : '';
+        });
+        rows.push(row);
+      }
+      ws = XLSX.utils.aoa_to_sheet(rows);
+    } else {
+      ws = XLSX.utils.json_to_sheet(datos);
+    }
+    XLSX.utils.book_append_sheet(wb, ws, hoja.substring(0, 30));
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const nombre = `${hoja}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====== SYNC: pull desde Google Sheets a SQLite ======
+router.post('/sync/pull', lecturas, async (req, res) => {
+  try {
+    const { tipo, hoja } = req.body;
+    if (tipo && hoja) {
+      const count = await syncService.pullHoja(tipo, hoja);
+      return res.json({ exito: true, mensaje: `${count} registros sincronizados desde Google Sheets para ${hoja}` });
+    }
+    const total = await syncService.pullTodo();
+    res.json({ exito: true, mensaje: `${total} registros sincronizados desde Google Sheets` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

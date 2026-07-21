@@ -82,6 +82,7 @@ const FormBuilder = {
     const container = document.getElementById('formFields');
     const form = document.getElementById('mainForm');
     this.fieldMap = {};
+    this.camposRepetibles = [];
 
     const seccionesHtml = {};
     for (const s of this.secciones) seccionesHtml[s.id] = '';
@@ -93,6 +94,11 @@ const FormBuilder = {
       const key = this.getKey(nombre);
       const labelText = this.formatearLabel(nombre);
       const seccionId = this.getSeccionId(nombre);
+      const esRepetible = this.esCampoRepetible(nombre);
+      if (esRepetible) {
+        this.camposRepetibles.push({ key, labelText, nombre });
+        return;
+      }
       let inputHtml;
 
       if (this.esCampoBloqueado(nombre)) {
@@ -161,19 +167,26 @@ const FormBuilder = {
 
     let html = '';
     for (const s of this.secciones) {
+      if (s.id === 'procedimiento') continue;
       if (seccionesHtml[s.id]) {
         html += `<div class="form-section"><div class="form-section-title">${s.titulo}</div><div class="form-grid">${seccionesHtml[s.id]}</div></div>`;
       }
     }
 
+    if (this.camposRepetibles.length > 0) {
+      html += this.renderTablaInsumos();
+    }
+
     container.innerHTML = html;
 
-    document.querySelectorAll('#formFields input[name*="CODIGO"], #formFields input[name*="CODIGO"]').forEach(inp => {
-      const targetKey = Object.keys(this.fieldMap).find(k =>
-        (k.includes('NOMBRE_DEL_PROCEDIMIENTO') || k.includes('NOMBRE_PROCEDIMIENTO') || k.includes('NOMBRE_DEL_DIAGNOSTICO'))
-      );
-      if (targetKey) inp.dataset.targetdesc = targetKey;
+    document.querySelectorAll('#formFields input[data-catalogo]').forEach(input => {
+      const targetName = input.dataset.targetdesc;
+      if (targetName) Autocomplete.configurar(input, input.dataset.catalogo, 'codigo', 'descripcion');
     });
+
+    if (this.camposRepetibles.length > 0) {
+      this.configurarTablaInsumos();
+    }
 
     document.getElementById('formLoader').style.display = 'none';
     form.style.display = '';
@@ -476,23 +489,35 @@ const FormBuilder = {
         return;
       }
 
-      const data = {};
-      document.querySelectorAll('#formFields input, #formFields select').forEach(el => {
-        if (el.name) data[el.name] = (el.value || '').toUpperCase();
+      const datosPaciente = {};
+      document.querySelectorAll('#formFields input, #formFields select, #formFields textarea').forEach(el => {
+        if (el.name && !el.dataset.itemKey) datosPaciente[el.name] = (el.value || '').toUpperCase();
       });
 
+      const items = this.obtenerItemsInsumos();
+
       try {
-        if (editFila) {
-          await API.actualizarRegistro(this.currentTipo, this.currentHoja, editFila, data);
+        if (items.length > 0 && !editFila) {
+          const res = await API.guardarBatch(this.currentTipo, this.currentHoja, datosPaciente, items);
+          Utils.mostrarAlerta(document.getElementById('formMessages'), 'success',
+            `${items.length} registro(s) guardado(s) + sync Google Sheets en proceso`);
+        } else if (editFila) {
+          await API.actualizarRegistro(this.currentTipo, this.currentHoja, editFila, datosPaciente);
+          Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro actualizado');
         } else {
-          await API.guardarRegistro(this.currentTipo, this.currentHoja, data);
+          await API.guardarRegistro(this.currentTipo, this.currentHoja, datosPaciente);
+          Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro guardado');
         }
-        Utils.mostrarAlerta(document.getElementById('formMessages'), 'success',
-          editFila ? 'Registro actualizado' : 'Registro guardado');
 
         form.reset();
         Reglas.aplicarValoresFijos(this.currentHoja);
         limpiarErrores();
+
+        if (this.camposRepetibles.length > 0 && !editFila) {
+          const tbody = document.getElementById('itemsTableBody');
+          if (tbody) tbody.innerHTML = '';
+          this.agregarFilaInsumo();
+        }
 
         RecentTable.cargar(this.currentTipo, this.currentHoja);
         delete this.editFila;
@@ -503,5 +528,162 @@ const FormBuilder = {
         btn.textContent = editFila ? '\u270F\uFE0F Actualizar' : '\u{1F4BE} Guardar';
       }
     };
+  },
+
+  // ====== SECCIÓN REPETIBLE: Tabla de Insumos / Procedimientos ======
+  camposRepetibles: [],
+
+  esCampoRepetible(nombre) {
+    const n = this.limpiarNombreColumna(nombre).toUpperCase();
+    return n.includes('PROCEDIMIENTO') || n.includes('MEDICAMENTO') ||
+           n.includes('CANTIDAD') || n.includes('VALOR_UNITARIO') ||
+           n.includes('VALOR_TOTAL') || n.includes('DURACION') ||
+           n.includes('TIEMPO_ANESTESIA') || n.includes('ANESTESIA') ||
+           n === 'DURACION' || n === 'TIEMPO_ANESTESIA' || n === 'ANESTESIA';
+  },
+
+  renderTablaInsumos() {
+    const campos = this.camposRepetibles;
+    const codigoKey = campos.find(c => c.nombre.toUpperCase().includes('CODIGO') || c.key.includes('CODIGO'))?.key || '';
+    const nombreKey = campos.find(c => c.key.includes('NOMBRE'))?.key || '';
+    const cantidadKey = campos.find(c => c.key.includes('CANTIDAD'))?.key || '';
+    const valorUnitKey = campos.find(c => c.key.includes('VALOR_UNITARIO'))?.key || '';
+    const valorTotalKey = campos.find(c => c.key.includes('VALOR_TOTAL'))?.key || '';
+    const duracionKey = campos.find(c => c.key.includes('DURACION'))?.key || '';
+    const tiempoAnestKey = campos.find(c => c.key.includes('TIEMPO_ANESTESIA'))?.key || '';
+    const anestesiaKey = campos.find(c => c.key.includes('ANESTESIA') && !c.key.includes('TIEMPO'))?.key || '';
+
+    const colVisibility = [
+      { key: codigoKey, label: 'Código', type: 'catalogo', catalogo: 'procedimientos,medicamentos' },
+      { key: nombreKey, label: 'Nombre', type: 'textarea' },
+      { key: cantidadKey, label: 'Cantidad', type: 'number' },
+      { key: valorUnitKey, label: 'Valor Unit.', type: 'number' },
+      { key: valorTotalKey, label: 'Valor Total', type: 'number' },
+      { key: duracionKey, label: 'Duración', type: 'text' },
+      { key: tiempoAnestKey, label: 'T. Anestesia', type: 'text' },
+      { key: anestesiaKey, label: 'Anestesia', type: 'text' },
+    ].filter(c => c.key);
+
+    const thHtml = colVisibility.map(c => `<th>${c.label}</th>`).join('');
+    const inputDefaults = {
+      'catalogo': '',
+      'textarea': '',
+      'number': '0',
+      'text': '',
+    };
+
+    const html = `
+      <div class="form-section">
+        <div class="form-section-title">Procedimientos / Insumos (1 fila por insumo)</div>
+        <div class="items-table-wrapper">
+          <table class="items-table" id="itemsTable">
+            <thead><tr>
+              <th>#</th>${thHtml}<th class="col-accion">Acción</th>
+            </tr></thead>
+            <tbody id="itemsTableBody"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-secondary btn-agregar-fila" id="btnAgregarFila">+ Agregar fila</button>
+      </div>`;
+
+    this._colVisibility = colVisibility;
+    return html;
+  },
+
+  configurarTablaInsumos() {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody) return;
+
+    document.getElementById('btnAgregarFila')?.addEventListener('click', () => this.agregarFilaInsumo());
+
+    this.agregarFilaInsumo();
+  },
+
+  agregarFilaInsumo() {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody) return;
+    const idx = tbody.children.length + 1;
+    const colVisibility = this._colVisibility || [];
+
+    const tdsHtml = colVisibility.map(col => {
+      if (col.type === 'catalogo') {
+        const rowIdx = tbody.children.length;
+        const id = `it-${col.key}-${rowIdx}`;
+        return `<td class="td-codigo"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="Código..." autocomplete="off"></div></td>`;
+      }
+      if (col.type === 'textarea') {
+        const rowIdx = tbody.children.length;
+        const id = `it-${col.key}-${rowIdx}`;
+        return `<td class="td-nombre"><textarea id="${id}" data-item-key="${col.key}" rows="1" placeholder="Descripción..." readonly></textarea></td>`;
+      }
+      if (col.type === 'number') {
+        const rowIdx = tbody.children.length;
+        const id = `it-${col.key}-${rowIdx}`;
+        return `<td><input type="number" id="${id}" data-item-key="${col.key}" step="0.01" value="0"></td>`;
+      }
+      const rowIdx = tbody.children.length;
+      const id = `it-${col.key}-${rowIdx}`;
+      return `<td><input type="text" id="${id}" data-item-key="${col.key}"></td>`;
+    }).join('');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="td-num">${idx}</td>${tdsHtml}<td class="td-accion"><button type="button" class="btn-quitar-fila" title="Quitar fila">X</button></td>`;
+    tbody.appendChild(tr);
+
+    const nombreKey = colVisibility.find(c => c.type === 'textarea')?.key;
+    const codigoInput = tr.querySelector('input[data-catalogo]');
+    if (codigoInput && nombreKey) {
+      codigoInput.dataset.targetdesc = nombreKey;
+      Autocomplete.configurar(codigoInput, codigoInput.dataset.catalogo, 'codigo', 'descripcion');
+    }
+
+    tr.querySelector('.btn-quitar-fila')?.addEventListener('click', () => {
+      tr.remove();
+      this.renumerarFilas();
+      this.calcularValorTotalFila(tr);
+    });
+
+    const cantidadInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Cantidad')?.key}"]`);
+    const valorUnitInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Valor Unit.')?.key}"]`);
+    const valorTotalInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Valor Total')?.key}"]`);
+    const calcTotal = () => {
+      if (cantidadInput && valorUnitInput && valorTotalInput) {
+        const c = parseFloat(cantidadInput.value) || 0;
+        const v = parseFloat(valorUnitInput.value) || 0;
+        valorTotalInput.value = (c * v).toFixed(2);
+      }
+    };
+    cantidadInput?.addEventListener('input', calcTotal);
+    valorUnitInput?.addEventListener('input', calcTotal);
+  },
+
+  renumerarFilas() {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody) return;
+    [...tbody.children].forEach((tr, i) => {
+      const numCell = tr.querySelector('.td-num');
+      if (numCell) numCell.textContent = i + 1;
+    });
+  },
+
+  obtenerItemsInsumos() {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody) return [];
+    const items = [];
+    const colVisibility = this._colVisibility || [];
+
+    for (const tr of tbody.children) {
+      const item = {};
+      let codigo = '';
+      for (const col of colVisibility) {
+        const input = tr.querySelector(`[data-item-key="${col.key}"]`);
+        const val = input ? (input.value || '').toUpperCase().trim() : '';
+        item[col.key] = val;
+        if (col.type === 'catalogo') codigo = val;
+      }
+      // Verificar que la fila tenga al menos un código
+      if (codigo) items.push(item);
+    }
+    return items;
   },
 };
