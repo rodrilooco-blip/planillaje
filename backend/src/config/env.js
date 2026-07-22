@@ -14,4 +14,5 @@ module.exports = {
     catalogos: (process.env.SHEET_CAT_HOJAS || 'Procedimientos,Diagnosticos,Medicamentos,Beneficiario,Dependencia,TipoExamen,Intrahospital').split(','),
   },
   cacheRefreshMinutos: parseInt(process.env.CACHE_REFRESH_MINUTOS || '30', 10),
+  googleDriveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
 };

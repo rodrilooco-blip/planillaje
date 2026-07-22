@@ -5,13 +5,21 @@ const config = require('../config/env');
 const { lecturas, escrituras } = require('../middleware/rateLimiter');
 const storage = require('../services/sqliteStorage');
 const syncService = require('../services/syncService');
+const driveManager = require('../services/driveManager');
+const mesesUtils = require('../config/meses');
 const XLSX = require('xlsx');
 const crypto = require('crypto');
 
 const router = Router();
 
-function getSpreadsheetId(tipo) {
+function getSpreadsheetId(tipo, codigo) {
   const t = tipo.toLowerCase();
+  if (codigo) {
+    const mes = storage.obtenerMes(codigo);
+    if (mes) return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+  }
+  const mes = storage.obtenerMesMasReciente();
+  if (mes) return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
   if (t === 'hospitalizacion') return config.sheets.hospitalizacion;
   if (t === 'emergencia') return config.sheets.emergencia;
   return null;
@@ -45,11 +53,11 @@ function mapearFilaAObjeto(encabezados, fila) {
 }
 
 router.get('/buscar-pacientes', lecturas, async (req, res) => {
-  const { q } = req.query;
+  const { q, mes } = req.query;
   if (!q || q.length < 3) return res.json({ datos: [] });
 
   const query = q.toUpperCase().trim();
-  const emergSheetId = getSpreadsheetId('emergencia');
+  const emergSheetId = getSpreadsheetId('emergencia', mes);
   if (!emergSheetId) return res.status(400).json({ error: 'Emergencia no configurada' });
 
   const hojas = config.hojas.emergencia;
@@ -93,7 +101,8 @@ router.get('/buscar-pacientes', lecturas, async (req, res) => {
 
 router.get('/:tipo/:hoja/columnas', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
@@ -146,9 +155,34 @@ router.post('/sync/pull', lecturas, async (req, res) => {
   }
 });
 
+// ====== GESTI\u00d3N DE MESES ======
+router.get('/meses', lecturas, async (req, res) => {
+  const lista = storage.obtenerTodosMeses();
+  res.json({ meses: lista });
+});
+
+router.post('/meses/crear', escrituras, async (req, res) => {
+  const { anio, mes } = req.body;
+  if (!anio || !mes) return res.status(400).json({ error: 'anio y mes requeridos' });
+  if (mes < 1 || mes > 12) return res.status(400).json({ error: 'Mes inv\u00e1lido (1-12)' });
+
+  try {
+    const result = await driveManager.crearMes(parseInt(anio, 10), parseInt(mes, 10));
+    res.json({ exito: true, mes: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al crear mes: ' + err.message });
+  }
+});
+
+router.get('/mes/actual', lecturas, async (req, res) => {
+  const mes = storage.obtenerMesMasReciente();
+  res.json({ mes });
+});
+
 router.get('/:tipo/:hoja', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
@@ -192,7 +226,8 @@ router.get('/:tipo/:hoja', lecturas, async (req, res) => {
 
 router.get('/:tipo/:hoja/next-numero', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
@@ -205,7 +240,8 @@ router.get('/:tipo/:hoja/next-numero', lecturas, async (req, res) => {
 
 router.post('/:tipo/:hoja', escrituras, async (req, res) => {
   const { tipo, hoja } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
   if (!validarHoja(tipo, hoja)) {
     return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
@@ -233,7 +269,8 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
 
 router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   const { tipo, hoja, fila } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
@@ -249,7 +286,8 @@ router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
 
 router.delete('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   const { tipo, hoja, fila } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
@@ -263,10 +301,11 @@ router.delete('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
 
 router.get('/:tipo/:hoja/:fila', lecturas, async (req, res, next) => {
   const { tipo, hoja, fila } = req.params;
+  const { mes } = req.query;
   // Si fila no es numérico, probar con la siguiente ruta coincidente (exportar-excel etc.)
   if (!/^\d+$/.test(fila)) return next();
 
-  const sheetId = getSpreadsheetId(tipo);
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
@@ -286,7 +325,8 @@ router.get('/:tipo/:hoja/:fila', lecturas, async (req, res, next) => {
 // ====== BATCH: guardar múltiples filas (1 paciente, N insumos) ======
 router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
   const { tipo, hoja } = req.params;
-  const sheetId = getSpreadsheetId(tipo);
+  const { mes } = req.query;
+  const sheetId = getSpreadsheetId(tipo, mes);
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
   if (!validarHoja(tipo, hoja)) return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
 
@@ -350,12 +390,13 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
 // ====== EXPORTAR A EXCEL ======
 router.get('/:tipo/:hoja/exportar-excel', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
+  const { mes } = req.query;
   if (!validarHoja(tipo, hoja)) return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
 
   try {
     let encabezados = storage.obtenerEncabezados(tipo, hoja);
     if (!encabezados) {
-      const sheetId = getSpreadsheetId(tipo);
+      const sheetId = getSpreadsheetId(tipo, mes);
       if (sheetId) {
         encabezados = await sheets.leerEncabezados(sheetId, hoja);
         if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);

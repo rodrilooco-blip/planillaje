@@ -39,6 +39,17 @@ function getDb() {
       actualizado_en TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (tipo, hoja)
     );
+
+    CREATE TABLE IF NOT EXISTS meses (
+      codigo TEXT PRIMARY KEY,
+      nombre TEXT NOT NULL,
+      anio INTEGER NOT NULL,
+      mes INTEGER NOT NULL,
+      carpeta_id TEXT,
+      hosp_sheet_id TEXT,
+      emerg_sheet_id TEXT,
+      creado_en TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   return db;
@@ -194,6 +205,43 @@ function siguienteNumeroPaciente(tipo, hoja) {
   return max;
 }
 
+// ====== GESTI�N DE MESES ======
+function guardarMes(mes) {
+  const d = getDb();
+  d.prepare(`INSERT OR REPLACE INTO meses (codigo, nombre, anio, mes, carpeta_id, hosp_sheet_id, emerg_sheet_id, creado_en)
+             VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
+    .run(mes.codigo, mes.nombre, mes.anio, mes.mes, mes.carpetaId, mes.hosp_sheet_id, mes.emerg_sheet_id);
+}
+
+function obtenerTodosMeses() {
+  const d = getDb();
+  return d.prepare('SELECT * FROM meses ORDER BY anio DESC, mes DESC').all();
+}
+
+function obtenerMesMasReciente() {
+  const d = getDb();
+  return d.prepare('SELECT * FROM meses ORDER BY anio DESC, mes DESC LIMIT 1').get() || null;
+}
+
+function obtenerMes(codigo) {
+  const d = getDb();
+  return d.prepare('SELECT * FROM meses WHERE codigo=?').get(codigo) || null;
+}
+
+function obtenerMesAnterior(tipo) {
+  const d = getDb();
+  const actual = d.prepare('SELECT * FROM meses ORDER BY anio DESC, mes DESC LIMIT 1').get();
+  if (!actual) return null;
+  const prev = d.prepare('SELECT * FROM meses WHERE (anio < ? OR (anio = ? AND mes < ?)) ORDER BY anio DESC, mes DESC LIMIT 1')
+    .get(actual.anio, actual.anio, actual.mes);
+  return prev || null;
+}
+
+function eliminarMes(codigo) {
+  const d = getDb();
+  d.prepare('DELETE FROM meses WHERE codigo=?').run(codigo);
+}
+
 module.exports = {
   getDb,
   normalizarKey,
@@ -211,4 +259,10 @@ module.exports = {
   contarRegistros,
   siguienteNumeroPaciente,
   contarPendientesSync,
+  guardarMes,
+  obtenerTodosMeses,
+  obtenerMesMasReciente,
+  obtenerMes,
+  obtenerMesAnterior,
+  eliminarMes,
 };

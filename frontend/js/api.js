@@ -1,5 +1,9 @@
 const API = {
   async fetchJSON(url, options) {
+    if (window.mesActual && url.includes('/planos/') && !url.includes('mes=')) {
+      const sep = url.includes('?') ? '&' : '?';
+      url += `${sep}mes=${encodeURIComponent(window.mesActual)}`;
+    }
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json', ...options?.headers },
       ...options,
@@ -85,5 +89,20 @@ const API = {
 
   forceSync() {
     return this.fetchJSON(`${Utils.API_BASE}/planos/sync/push`, { method: 'POST' });
+  },
+
+  getMeses() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses`);
+  },
+
+  getMesActual() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/mes/actual`);
+  },
+
+  crearMes(anio, mes) {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/crear`, {
+      method: 'POST',
+      body: JSON.stringify({ anio, mes }),
+    });
   },
 };
