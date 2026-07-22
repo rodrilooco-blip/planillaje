@@ -110,10 +110,15 @@ function detenerSyncAutomatico() {
   }
 }
 
+function contarPendientes() {
+  return storage.contarPendientesSync();
+}
+
 module.exports = {
   pushPendientes,
   pullHoja,
   pullTodo,
   iniciarSyncAutomatico,
   detenerSyncAutomatico,
+  contarPendientes,
 };

@@ -216,6 +216,34 @@ const FormBuilder = {
     if (this.currentTipo === 'hospitalizacion' && !editFila) {
       this.agregarBuscadorPacientes();
     }
+
+    // Verificar estado de sincronizaci�n al cargar
+    this.verificarSyncStatus();
+  },
+
+  async verificarSyncStatus() {
+    try {
+      const status = await API.checkSyncStatus();
+      const section = document.getElementById('formSyncStatus');
+      if (!section) return;
+      if (status.pendientes > 0) {
+        section.innerHTML = `<div style="display:flex;align-items:center;gap:8px;padding:6px 12px;margin-top:-12px;margin-bottom:12px;background:#fef3cd;border:1px solid #ffc107;border-radius:4px;font-size:12px">
+          <span>&#x26A0;</span>
+          <span>${status.pendientes} registro(s) pendientes de sincronizar a Google Sheets</span>
+          <button type="button" id="btnForzarSync" style="margin-left:auto;padding:4px 12px;background:#ffc107;border:none;border-radius:4px;cursor:pointer;font-weight:600">Sincronizar ahora</button>
+        </div>`;
+        document.getElementById('btnForzarSync')?.addEventListener('click', async () => {
+          const btn = document.getElementById('btnForzarSync');
+          btn.disabled = true; btn.textContent = 'Sincronizando...';
+          try {
+            const r = await API.forceSync();
+          } catch (e) { /* ignore */ }
+          this.verificarSyncStatus();
+        });
+      } else {
+        section.innerHTML = '';
+      }
+    } catch (e) { /* no hay servidor */ }
   },
 
   esCampoMedico(key) {
@@ -508,8 +536,9 @@ const FormBuilder = {
       try {
         if (items.length > 0 && !editFila) {
           const res = await API.guardarBatch(this.currentTipo, this.currentHoja, datosPaciente, items);
+          const status = await API.checkSyncStatus().catch(() => ({ pendientes: '?' }));
           Utils.mostrarAlerta(document.getElementById('formMessages'), 'success',
-            `${items.length} registro(s) guardado(s) + sync Google Sheets en proceso`);
+            `${items.length} registro(s) guardado(s)` + (status.pendientes > 0 ? ` (sync pendiente: ${status.pendientes})` : ' (sincronizado)'));
         } else if (editFila) {
           await API.actualizarRegistro(this.currentTipo, this.currentHoja, editFila, datosPaciente);
           Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro actualizado');

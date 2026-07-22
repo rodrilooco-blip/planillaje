@@ -144,6 +144,12 @@ function obtenerPendientesSync(limite = 100) {
     .all(limite);
 }
 
+function contarPendientesSync() {
+  const d = getDb();
+  const r = d.prepare('SELECT COUNT(*) as total FROM registros WHERE synced=0').get();
+  return r ? r.total : 0;
+}
+
 function marcarSynced(id, filaGs) {
   const d = getDb();
   d.prepare('UPDATE registros SET synced=1, fila_gs=? WHERE id=?').run(filaGs || null, id);
@@ -204,4 +210,5 @@ module.exports = {
   upsertPorFilaGs,
   contarRegistros,
   siguienteNumeroPaciente,
+  contarPendientesSync,
 };

@@ -78,4 +78,12 @@ const API = {
   buscarPacientes(query) {
     return this.fetchJSON(`${Utils.API_BASE}/planos/buscar-pacientes?q=${encodeURIComponent(query)}`);
   },
+
+  checkSyncStatus() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/sync/status`);
+  },
+
+  forceSync() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/sync/push`, { method: 'POST' });
+  },
 };

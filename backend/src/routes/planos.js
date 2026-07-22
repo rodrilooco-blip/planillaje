@@ -110,6 +110,42 @@ router.get('/:tipo/:hoja/columnas', lecturas, async (req, res) => {
   }
 });
 
+// ====== SYNC: estado de la sincronizaci\u00f3n ======
+router.get('/sync/status', lecturas, async (req, res) => {
+  try {
+    const pendientes = syncService.contarPendientes();
+    res.json({ pendientes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====== SYNC: forzar push a Google Sheets ======
+router.post('/sync/push', escrituras, async (req, res) => {
+  try {
+    await syncService.pushPendientes();
+    const restantes = syncService.contarPendientes();
+    res.json({ exito: true, mensaje: 'Sincronizaci\u00f3n completada', restantes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====== SYNC: pull desde Google Sheets a SQLite ======
+router.post('/sync/pull', lecturas, async (req, res) => {
+  try {
+    const { tipo, hoja } = req.body;
+    if (tipo && hoja) {
+      const count = await syncService.pullHoja(tipo, hoja);
+      return res.json({ exito: true, mensaje: `${count} registros sincronizados desde Google Sheets para ${hoja}` });
+    }
+    const total = await syncService.pullTodo();
+    res.json({ exito: true, mensaje: `${total} registros sincronizados desde Google Sheets` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:tipo/:hoja', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
   const sheetId = getSpreadsheetId(tipo);
@@ -352,21 +388,6 @@ router.get('/:tipo/:hoja/exportar-excel', lecturas, async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
     res.send(buf);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ====== SYNC: pull desde Google Sheets a SQLite ======
-router.post('/sync/pull', lecturas, async (req, res) => {
-  try {
-    const { tipo, hoja } = req.body;
-    if (tipo && hoja) {
-      const count = await syncService.pullHoja(tipo, hoja);
-      return res.json({ exito: true, mensaje: `${count} registros sincronizados desde Google Sheets para ${hoja}` });
-    }
-    const total = await syncService.pullTodo();
-    res.json({ exito: true, mensaje: `${total} registros sincronizados desde Google Sheets` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
