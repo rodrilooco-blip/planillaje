@@ -1,50 +1,56 @@
 @echo off
 title Sistema de Planillaje
 cd /d "%~dp0"
-color 17
+color 1F
+cls
 
 echo ============================================
 echo      SISTEMA DE PLANILLAJE MEDICO
 echo ============================================
 echo.
-echo Iniciando servidor...
-echo.
 
 :: Verificar Node.js
-where node >nul 2>nul
+node --version >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [ERROR] Node.js no esta instalado.
-    echo Descargar: https://nodejs.org/ (version 16 LTS)
+    echo [ERROR] Node.js no instalado.
     pause
     exit /b
 )
 
+:: Verificar .env
+if not exist "backend\.env" (
+    copy "backend\.env.example" "backend\.env" >nul
+)
+
 :: Verificar dependencias
 if not exist "backend\node_modules" (
-    echo Instalando dependencias (primera vez)...
+    echo Instalando dependencias...
     cd /d "%~dp0backend"
-    npm install --no-fund --no-audit
-    if %errorlevel% neq 0 (
-        echo [ERROR] Fallo al instalar dependencias.
-        pause
-        exit /b
-    )
+    call npm install --no-fund --no-audit
     cd /d "%~dp0"
 )
 
-:: Iniciar servidor
+:: Iniciar servidor (ventana minimizada)
+cd /d "%~dp0backend"
+start /min "" node server.js
+
+:: Esperar y abrir navegador
+echo Esperando 15 segundos mientras cargan los catalogos...
+echo.
+ping -n 15 127.0.0.1 >nul
+
 echo Abriendo navegador...
 start "" http://localhost:3000
 
-echo Servidor corriendo en: http://localhost:3000
+cls
+echo ============================================
+echo      SISTEMA DE PLANILLAJE MEDICO
+echo ============================================
 echo.
-echo Para DETENER el servidor: cierre esta ventana o presione Ctrl+C
+echo  Servidor iniciado en: http://localhost:3000
 echo.
-cd /d "%~dp0backend"
-node server.js
-
-if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] El servidor se cerro inesperadamente.
-    pause
-)
+echo  CIERRE ESTA VENTANA para detener el servidor
+echo ============================================
+echo.
+pause >nul
+taskkill /f /im node.exe >nul 2>nul
