@@ -22,7 +22,7 @@ async function getAuth() {
     keyFile: keyFilePath,
     scopes: [
       'https://www.googleapis.com/auth/spreadsheets',
-      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive',
     ],
   });
   authClient = await auth.getClient();
@@ -39,6 +39,33 @@ async function getDriveClient() {
 async function getSheetsClient() {
   const auth = await getAuth();
   return google.sheets({ version: 'v4', auth });
+}
+
+async function listarArchivosSADrive() {
+  const drive = await getDriveClient();
+  const res = await drive.files.list({
+    pageSize: 100,
+    fields: 'files(id,name,mimeType,parents,size,createdTime,trashed)',
+    q: "'root' in parents and trashed=false",
+  });
+  return res.data.files || [];
+}
+
+async function limpiarSADrive(secoId = null) {
+  const drive = await getDriveClient();
+  const archivos = secoId ? [{ id: secoId }] : await listarArchivosSADrive();
+  const eliminados = [];
+  const noEliminados = [];
+  for (const f of archivos) {
+    if (f.parents && f.parents.includes(config.googleDriveFolderId)) continue;
+    try {
+      await drive.files.delete({ fileId: f.id });
+      eliminados.push({ id: f.id, name: f.name });
+    } catch (e) {
+      noEliminados.push({ id: f.id, name: f.name, error: e.message });
+    }
+  }
+  return { eliminados: eliminados.length, noEliminados, total: archivos.length };
 }
 
 async function crearCarpeta(nombre) {
@@ -201,4 +228,6 @@ async function crearMes(anio, mesNum) {
 module.exports = {
   crearMes,
   getServiceAccountEmail,
+  listarArchivosSADrive,
+  limpiarSADrive,
 };

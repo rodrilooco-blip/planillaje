@@ -163,11 +163,25 @@ router.get('/meses', lecturas, async (req, res) => {
 
 router.get('/meses/diagnostico', lecturas, async (req, res) => {
   await driveManager.getServiceAccountEmail();
+  let archivosSADrive = [];
+  try {
+    archivosSADrive = await driveManager.listarArchivosSADrive();
+  } catch (e) { /* ignore */ }
   res.json({
     serviceAccountEmail: driveManager.getServiceAccountEmail(),
     googleDriveFolderId: config.googleDriveFolderId,
     tieneCredenciales: !!config.sheets.hospitalizacion,
+    archivosSADriveRaiz: archivosSADrive,
   });
+});
+
+router.post('/meses/limpiar-sa-drive', escrituras, async (req, res) => {
+  try {
+    const result = await driveManager.limpiarSADrive();
+    res.json({ exito: true, result });
+  } catch (err) {
+    res.status(500).json({ error: 'Error limpiando SA Drive: ' + err.message });
+  }
 });
 
 router.post('/meses/crear', escrituras, async (req, res) => {
