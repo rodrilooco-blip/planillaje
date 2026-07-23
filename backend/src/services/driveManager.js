@@ -153,6 +153,28 @@ async function copiarEncabezados(origenSheetId, origenTab, destinoSheetId, destT
   }
 }
 
+async function buscarCarpetaPorNombre(nombreCarpeta) {
+  const drive = await getDriveClient();
+  const res = await drive.files.list({
+    q: `mimeType='application/vnd.google-apps.folder' and name='${nombreCarpeta.replace(/'/g, "\\'")}' and trashed=false`,
+    fields: 'files(id,name,parents)',
+    pageSize: 5,
+  });
+  return res.data.files || [];
+}
+
+async function buscarSpreadsheetPorNombre(nombreArchivo, carpetaId) {
+  const drive = await getDriveClient();
+  const res = await drive.files.list({
+    q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${nombreArchivo.replace(/'/g, "\\'")}' and trashed=false`,
+    fields: 'files(id,name,parents)',
+    pageSize: 10,
+  });
+  const all = res.data.files || [];
+  if (carpetaId) return all.filter(f => f.parents && f.parents.includes(carpetaId));
+  return all;
+}
+
 async function crearMes(anio, mesNum) {
   const codigo = meses.generarCodigo(anio, mesNum);
   const nombreCarpeta = meses.generarNombreCarpeta(anio, mesNum);
@@ -163,16 +185,33 @@ async function crearMes(anio, mesNum) {
     return existente;
   }
 
-  console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
-  const carpetaId = await crearCarpeta(nombreCarpeta);
+  // 1) Buscar carpeta existente en Drive por nombre
+  let carpetaId = null;
+  const carpetas = await buscarCarpetaPorNombre(nombreCarpeta);
+  if (carpetas.length > 0) {
+    carpetaId = carpetas[0].id;
+    console.log('[DriveManager] Carpeta ya existe en Drive: ' + nombreCarpeta + ' [' + carpetaId + ']');
+  } else {
+    console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
+    carpetaId = await crearCarpeta(nombreCarpeta);
+  }
 
   const result = { codigo, nombre: nombreCarpeta, anio, mes: mesNum, carpetaId };
 
   const tipos = ['hospitalizacion', 'emergencia'];
   for (const tipo of tipos) {
     const nombreArchivo = meses.generarNombreArchivo(tipo, anio, mesNum);
-    console.log('[DriveManager] Creando spreadsheet: ' + nombreArchivo);
-    const sheetId = await crearSpreadsheet(nombreArchivo, carpetaId);
+
+    // 2) Buscar spreadsheet existente en la carpeta
+    let sheetId = null;
+    const existentes = await buscarSpreadsheetPorNombre(nombreArchivo, carpetaId);
+    if (existentes.length > 0) {
+      sheetId = existentes[0].id;
+      console.log('[DriveManager] Spreadsheet ya existe: ' + nombreArchivo + ' [' + sheetId + ']');
+    } else {
+      console.log('[DriveManager] Creando spreadsheet: ' + nombreArchivo);
+      sheetId = await crearSpreadsheet(nombreArchivo, carpetaId);
+    }
 
     const tabs = meses.obtenerNombresTabs(tipo);
     await agregarTabs(sheetId, tabs);
@@ -223,9 +262,11 @@ async function crearMes(anio, mesNum) {
 
     if (tipo === 'hospitalizacion') result.hosp_sheet_id = sheetId;
     else result.emerg_sheet_id = sheetId;
+
+    // Guardar en SQLite inmediatamente tras tener el sheetId (sin esperar copia encabezados)
+    storage.guardarMes(result);
   }
 
-  storage.guardarMes(result);
   return result;
 }
 
