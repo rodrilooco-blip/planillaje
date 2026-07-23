@@ -49,8 +49,27 @@ const App = {
     window.mesActual = codigo || '';
     const mes = this.meses.find(m => m.codigo === codigo);
     document.getElementById('monthSelect').value = codigo || '';
+    this.actualizarIndicadorDrive(mes);
     if (FormBuilder.currentHoja) {
       this.onSelectHoja(FormBuilder.currentTipo, FormBuilder.currentHoja);
+    }
+  },
+
+  actualizarIndicadorDrive(mes) {
+    let indicator = document.getElementById('driveIndicator');
+    if (!indicator) {
+      indicator = document.createElement('div');
+      indicator.id = 'driveIndicator';
+      indicator.className = 'drive-indicator';
+      const header = document.querySelector('.header-center');
+      if (header) header.appendChild(indicator);
+    }
+    if (mes) {
+      indicator.innerHTML = `&#x1F4C1; ${mes.nombre || mes.codigo}`;
+      indicator.title = `Carpeta Drive: ${mes.carpeta_id || '(no creada)'}\nHosp: ${mes.hosp_sheet_id || '(no creado)'}\nEmerg: ${mes.emerg_sheet_id || '(no creado)'}`;
+    } else {
+      indicator.innerHTML = '&#x1F4C1; Plantilla original';
+      indicator.title = 'Sin mes creado. Guardando en plantilla original de Google Sheets.';
     }
   },
 

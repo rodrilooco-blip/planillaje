@@ -161,16 +161,34 @@ router.get('/meses', lecturas, async (req, res) => {
   res.json({ meses: lista });
 });
 
+router.get('/meses/diagnostico', lecturas, async (req, res) => {
+  await driveManager.getServiceAccountEmail();
+  res.json({
+    serviceAccountEmail: driveManager.getServiceAccountEmail(),
+    googleDriveFolderId: config.googleDriveFolderId,
+    tieneCredenciales: !!config.sheets.hospitalizacion,
+  });
+});
+
 router.post('/meses/crear', escrituras, async (req, res) => {
   const { anio, mes } = req.body;
   if (!anio || !mes) return res.status(400).json({ error: 'anio y mes requeridos' });
   if (mes < 1 || mes > 12) return res.status(400).json({ error: 'Mes inv\u00e1lido (1-12)' });
 
   try {
+    const codigoPrevio = mesesUtils.generarCodigo(parseInt(anio, 10), parseInt(mes, 10));
+    const preExistia = !!storage.obtenerMes(codigoPrevio);
     const result = await driveManager.crearMes(parseInt(anio, 10), parseInt(mes, 10));
-    res.json({ exito: true, mes: result });
+    res.json({ exito: true, mes: result, yaExistia: preExistia });
   } catch (err) {
-    res.status(500).json({ error: 'Error al crear mes: ' + err.message });
+    await driveManager.getServiceAccountEmail();
+    const saEmail = driveManager.getServiceAccountEmail();
+    res.status(500).json({
+      error: 'Error al crear mes: ' + err.message,
+      serviceAccountEmail: saEmail,
+      googleDriveFolderId: config.googleDriveFolderId,
+      ayuda: 'Comparte la carpeta de Google Drive con el email: ' + saEmail,
+    });
   }
 });
 

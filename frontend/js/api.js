@@ -95,6 +95,10 @@ const API = {
     return this.fetchJSON(`${Utils.API_BASE}/planos/meses`);
   },
 
+  getDiagnostico() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/diagnostico`);
+  },
+
   getMesActual() {
     return this.fetchJSON(`${Utils.API_BASE}/planos/mes/actual`);
   },

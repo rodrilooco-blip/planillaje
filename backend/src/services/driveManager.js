@@ -1,15 +1,23 @@
 const { google } = require('googleapis');
 const path = require('path');
+const fs = require('fs');
 const config = require('../config/env');
 const meses = require('../config/meses');
 const sheets = require('./googleSheets');
 const storage = require('./sqliteStorage');
 
 let authClient = null;
+let serviceAccountEmail = '';
 
 async function getAuth() {
   if (authClient) return authClient;
   const keyFilePath = path.resolve(config.serviceAccountPath);
+  if (fs.existsSync(keyFilePath)) {
+    try {
+      const creds = JSON.parse(fs.readFileSync(keyFilePath, 'utf8'));
+      serviceAccountEmail = creds.client_email || '(desconocido)';
+    } catch (e) { /* ignore */ }
+  }
   const auth = new google.auth.GoogleAuth({
     keyFile: keyFilePath,
     scopes: [
@@ -20,6 +28,8 @@ async function getAuth() {
   authClient = await auth.getClient();
   return authClient;
 }
+
+function getServiceAccountEmail() { return serviceAccountEmail; }
 
 async function getDriveClient() {
   const auth = await getAuth();
@@ -42,9 +52,7 @@ async function crearCarpeta(nombre) {
     fields: 'id',
   });
   return res.data.id;
-}
-
-async function crearSpreadsheet(nombre, folderId) {
+}async function crearSpreadsheet(nombre, folderId) {
   const sheetsClient = await getSheetsClient();
   const res = await sheetsClient.spreadsheets.create({
     requestBody: { properties: { title: nombre } },
@@ -125,6 +133,12 @@ async function crearMes(anio, mesNum) {
   const codigo = meses.generarCodigo(anio, mesNum);
   const nombreCarpeta = meses.generarNombreCarpeta(anio, mesNum);
 
+  const existente = storage.obtenerMes(codigo);
+  if (existente) {
+    console.log('[DriveManager] Mes ya existe: ' + codigo + ' - devolviendo existente');
+    return existente;
+  }
+
   console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
   const carpetaId = await crearCarpeta(nombreCarpeta);
 
@@ -193,4 +207,5 @@ async function crearMes(anio, mesNum) {
 
 module.exports = {
   crearMes,
+  getServiceAccountEmail,
 };
