@@ -201,85 +201,86 @@ async function crearMes(anio, mesNum) {
     return existente;
   }
 
-  // 1) Buscar carpeta existente en Drive por nombre (con variaciones)
   let carpetaId = null;
-  const carpetaExistente = await buscarCarpetaPorNombre(anio, mesNum);
-  if (carpetaExistente) {
-    carpetaId = carpetaExistente.id;
-    console.log('[DriveManager] Carpeta ya existe en Drive: "' + carpetaExistente.name + '" [' + carpetaId + ']');
-  } else {
-    console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
-    carpetaId = await crearCarpeta(nombreCarpeta);
+  try {
+    const carpetaExistente = await buscarCarpetaPorNombre(anio, mesNum);
+    if (carpetaExistente) {
+      carpetaId = carpetaExistente.id;
+      console.log('[DriveManager] Carpeta ya existe: "' + carpetaExistente.name + '" [' + carpetaId + ']');
+    } else {
+      console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
+      carpetaId = await crearCarpeta(nombreCarpeta);
+    }
+  } catch (e) {
+    console.warn('[DriveManager] Error con carpeta Drive: ' + e.message);
   }
 
-  const result = { codigo, nombre: nombreCarpeta, anio, mes: mesNum, carpetaId };
+  // Guardar mes en SQLITE aunque Drive falle — luego se puede enlazar manualmente
+  const result = { codigo, nombre: nombreCarpeta, anio, mes: mesNum, carpetaId: carpetaId || '' };
+  storage.guardarMes(result);
 
   const tipos = ['hospitalizacion', 'emergencia'];
   for (const tipo of tipos) {
-    const nombreArchivo = meses.generarNombreArchivo(tipo, anio, mesNum);
-
-    // 2) Buscar spreadsheet existente en la carpeta (con variaciones de nombre)
     let sheetId = null;
-    const spreadsheetExistente = await buscarSpreadsheetPorNombre(tipo, anio, mesNum, carpetaId);
-    if (spreadsheetExistente) {
-      sheetId = spreadsheetExistente.id;
-      console.log('[DriveManager] Spreadsheet ya existe: "' + spreadsheetExistente.name + '" [' + sheetId + ']');
-    } else {
-      console.log('[DriveManager] Creando spreadsheet: ' + nombreArchivo);
-      sheetId = await crearSpreadsheet(nombreArchivo, carpetaId);
-    }
-
-    const tabs = meses.obtenerNombresTabs(tipo);
-    await agregarTabs(sheetId, tabs);
-
-    // Copiar encabezados del mes anterior o de la plantilla
-    const mesAnterior = storage.obtenerMesAnterior(tipo);
-    if (mesAnterior && mesAnterior[tipo === 'hospitalizacion' ? 'hosp_sheet_id' : 'emerg_sheet_id']) {
-      const sourceId = mesAnterior[tipo === 'hospitalizacion' ? 'hosp_sheet_id' : 'emerg_sheet_id'];
-      console.log('[DriveManager] Copiando encabezados desde mes anterior para ' + tipo);
-      // Leer encabezados del mes anterior desde SQLite
-      const encabPrev = storage.obtenerEncabezados(tipo, tabs[0]);
-      if (encabPrev && encabPrev.length > 0) {
-        const sheetsClient = await getSheetsClient();
-        for (const tab of tabs) {
-          await sheetsClient.spreadsheets.values.update({
-            spreadsheetId: sheetId,
-            range: tab + '!A1',
-            valueInputOption: 'USER_ENTERED',
-            requestBody: { values: [encabPrev] },
-          });
-        }
+    try {
+      const nombreArchivo = meses.generarNombreArchivo(tipo, anio, mesNum);
+      const spreadsheetExistente = await buscarSpreadsheetPorNombre(tipo, anio, mesNum, carpetaId);
+      if (spreadsheetExistente) {
+        sheetId = spreadsheetExistente.id;
+        console.log('[DriveManager] Spreadsheet existe: "' + spreadsheetExistente.name + '" [' + sheetId + ']');
+      } else if (carpetaId) {
+        console.log('[DriveManager] Creando spreadsheet: ' + nombreArchivo);
+        sheetId = await crearSpreadsheet(nombreArchivo, carpetaId);
       } else {
-        // Fallback: copiar desde Google Sheets directamente
-        await copiarEncabezados(sourceId, tabs[0], sheetId, tabs);
-        // Guardar encabezados en SQLite para futuras copias
-        const encFromGs = await sheets.leerEncabezados(sourceId, tabs[0]);
-        if (encFromGs && encFromGs.length > 0) storage.guardarEncabezados(tipo, tabs[0], encFromGs);
+        console.warn('[DriveManager] Sin carpetaId, no se crea spreadsheet');
       }
-    } else {
-      // Usar plantilla del .env (SHEET_HOSPITALIZACION o SHEET_EMERGENCIA)
-      const templateId = tipo === 'hospitalizacion' ? config.sheets.hospitalizacion : config.sheets.emergencia;
-      if (templateId) {
-        const nomEnc = await sheets.leerEncabezados(templateId, tabs[0]);
-        if (nomEnc && nomEnc.length > 0) {
-          const sheetsClient = await getSheetsClient();
-          for (const tab of tabs) {
-            await sheetsClient.spreadsheets.values.update({
-              spreadsheetId: sheetId,
-              range: tab + '!A1',
-              valueInputOption: 'USER_ENTERED',
-              requestBody: { values: [nomEnc] },
-            });
+
+      if (sheetId) {
+        const tabs = meses.obtenerNombresTabs(tipo);
+        await agregarTabs(sheetId, tabs);
+
+        // Copiar encabezados
+        const mesAnterior = storage.obtenerMesAnterior(tipo);
+        if (mesAnterior && mesAnterior[tipo === 'hospitalizacion' ? 'hosp_sheet_id' : 'emerg_sheet_id']) {
+          const sourceId = mesAnterior[tipo === 'hospitalizacion' ? 'hosp_sheet_id' : 'emerg_sheet_id'];
+          const encabPrev = storage.obtenerEncabezados(tipo, tabs[0]);
+          if (encabPrev && encabPrev.length > 0) {
+            const sheetsClient = await getSheetsClient();
+            for (const tab of tabs) {
+              await sheetsClient.spreadsheets.values.update({
+                spreadsheetId: sheetId, range: tab + '!A1',
+                valueInputOption: 'USER_ENTERED', requestBody: { values: [encabPrev] },
+              });
+            }
+          } else {
+            await copiarEncabezados(sourceId, tabs[0], sheetId, tabs);
+            const encFromGs = await sheets.leerEncabezados(sourceId, tabs[0]);
+            if (encFromGs && encFromGs.length > 0) storage.guardarEncabezados(tipo, tabs[0], encFromGs);
           }
-          storage.guardarEncabezados(tipo, tabs[0], nomEnc);
+        } else {
+          const templateId = tipo === 'hospitalizacion' ? config.sheets.hospitalizacion : config.sheets.emergencia;
+          if (templateId) {
+            const nomEnc = await sheets.leerEncabezados(templateId, tabs[0]);
+            if (nomEnc && nomEnc.length > 0) {
+              const sheetsClient = await getSheetsClient();
+              for (const tab of tabs) {
+                await sheetsClient.spreadsheets.values.update({
+                  spreadsheetId: sheetId, range: tab + '!A1',
+                  valueInputOption: 'USER_ENTERED', requestBody: { values: [nomEnc] },
+                });
+              }
+              storage.guardarEncabezados(tipo, tabs[0], nomEnc);
+            }
+          }
         }
       }
+    } catch (e) {
+      console.warn('[DriveManager] Error con spreadsheet ' + tipo + ': ' + e.message);
     }
 
-    if (tipo === 'hospitalizacion') result.hosp_sheet_id = sheetId;
-    else result.emerg_sheet_id = sheetId;
+    if (tipo === 'hospitalizacion') result.hosp_sheet_id = sheetId || '';
+    else result.emerg_sheet_id = sheetId || '';
 
-    // Guardar en SQLite inmediatamente tras tener el sheetId (sin esperar copia encabezados)
     storage.guardarMes(result);
   }
 

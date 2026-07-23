@@ -175,6 +175,29 @@ router.get('/meses/diagnostico', lecturas, async (req, res) => {
   });
 });
 
+router.post('/meses/enlazar', escrituras, async (req, res) => {
+  const { anio, mes, carpetaId, hospSheetId, emergSheetId } = req.body;
+  if (!anio || !mes) return res.status(400).json({ error: 'anio y mes requeridos' });
+
+  try {
+    const codigo = mesesUtils.generarCodigo(parseInt(anio, 10), parseInt(mes, 10));
+    const nombreCarpeta = mesesUtils.generarNombreCarpeta(parseInt(anio, 10), parseInt(mes, 10));
+    const result = {
+      codigo,
+      nombre: nombreCarpeta,
+      anio: parseInt(anio, 10),
+      mes: parseInt(mes, 10),
+      carpeta_id: carpetaId || '',
+      hosp_sheet_id: hospSheetId || '',
+      emerg_sheet_id: emergSheetId || '',
+    };
+    storage.guardarMes(result);
+    res.json({ exito: true, mes: result });
+  } catch (err) {
+    res.status(500).json({ error: 'Error enlazando mes: ' + err.message });
+  }
+});
+
 router.post('/meses/limpiar-sa-drive', escrituras, async (req, res) => {
   try {
     const todo = req.body && req.body.todo === true;
