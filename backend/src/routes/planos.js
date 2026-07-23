@@ -182,12 +182,14 @@ router.post('/meses/enlazar', escrituras, async (req, res) => {
   try {
     const codigo = mesesUtils.generarCodigo(parseInt(anio, 10), parseInt(mes, 10));
     const nombreCarpeta = mesesUtils.generarNombreCarpeta(parseInt(anio, 10), parseInt(mes, 10));
+    // Preservar carpetaId existente si no se envió
+    const existente = storage.obtenerMes(codigo);
     const result = {
       codigo,
       nombre: nombreCarpeta,
       anio: parseInt(anio, 10),
       mes: parseInt(mes, 10),
-      carpeta_id: carpetaId || '',
+      carpetaId: carpetaId || (existente && existente.carpetaId) || '',
       hosp_sheet_id: hospSheetId || '',
       emerg_sheet_id: emergSheetId || '',
     };
