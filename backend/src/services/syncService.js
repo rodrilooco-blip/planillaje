@@ -6,6 +6,10 @@ let syncing = false;
 
 function getSpreadsheetId(tipo) {
   const t = tipo.toLowerCase();
+  const mes = storage.obtenerMesMasReciente();
+  if (mes) {
+    return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+  }
   if (t === 'hospitalizacion') return config.sheets.hospitalizacion;
   if (t === 'emergencia') return config.sheets.emergencia;
   return null;

@@ -53,23 +53,16 @@ async function crearCarpeta(nombre) {
   });
   return res.data.id;
 }async function crearSpreadsheet(nombre, folderId) {
-  const sheetsClient = await getSheetsClient();
-  const res = await sheetsClient.spreadsheets.create({
-    requestBody: { properties: { title: nombre } },
-    fields: 'spreadsheetId',
-  });
-  const sheetId = res.data.spreadsheetId;
-
-  // Mover a la carpeta
   const drive = await getDriveClient();
-  await drive.files.update({
-    fileId: sheetId,
-    addParents: folderId,
-    removeParents: 'root',
+  const res = await drive.files.create({
+    requestBody: {
+      name: nombre,
+      mimeType: 'application/vnd.google-apps.spreadsheet',
+      parents: [folderId],
+    },
     fields: 'id',
   });
-
-  return sheetId;
+  return res.data.id;
 }
 
 async function agregarTabs(sheetId, nombresTabs) {
