@@ -682,38 +682,25 @@ const FormBuilder = {
            n.includes('CANTIDAD') || n.includes('VALOR_UNITARIO') ||
            n.includes('VALOR_TOTAL') || n.includes('DURACION') ||
            n.includes('TIEMPO_ANESTESIA') || n.includes('ANESTESIA') ||
+           n.includes('TIPO EXAMEN') || n.includes('TIPO_EXAMEN') ||
            n === 'DURACION' || n === 'TIEMPO_ANESTESIA' || n === 'ANESTESIA';
   },
 
   renderTablaInsumos() {
     const campos = this.camposRepetibles;
+    const tipoExamenKey = campos.find(c => c.key.includes('TIPO_EXAMEN'))?.key || '';
     const codigoKey = campos.find(c => c.nombre.toUpperCase().includes('CODIGO') || c.key.includes('CODIGO'))?.key || '';
     const nombreKey = campos.find(c => c.key.includes('NOMBRE'))?.key || '';
     const cantidadKey = campos.find(c => c.key.includes('CANTIDAD'))?.key || '';
-    const valorUnitKey = campos.find(c => c.key.includes('VALOR_UNITARIO'))?.key || '';
-    const valorTotalKey = campos.find(c => c.key.includes('VALOR_TOTAL'))?.key || '';
-    const duracionKey = campos.find(c => c.key.includes('DURACION'))?.key || '';
-    const tiempoAnestKey = campos.find(c => c.key.includes('TIEMPO_ANESTESIA'))?.key || '';
-    const anestesiaKey = campos.find(c => c.key.includes('ANESTESIA') && !c.key.includes('TIEMPO'))?.key || '';
 
     const colVisibility = [
-      { key: codigoKey, label: 'Código', type: 'catalogo', catalogo: 'procedimientos,medicamentos' },
+      { key: tipoExamenKey, label: 'Tipo Examen', type: 'catalogo', catalogo: 'tipoexamen' },
+      { key: codigoKey, label: 'C\u00f3digo', type: 'catalogo', catalogo: 'procedimientos,medicamentos' },
       { key: nombreKey, label: 'Nombre', type: 'textarea' },
       { key: cantidadKey, label: 'Cantidad', type: 'number' },
-      { key: valorUnitKey, label: 'Valor Unit.', type: 'number' },
-      { key: valorTotalKey, label: 'Valor Total', type: 'number' },
-      { key: duracionKey, label: 'Duración', type: 'text' },
-      { key: tiempoAnestKey, label: 'T. Anestesia', type: 'text' },
-      { key: anestesiaKey, label: 'Anestesia', type: 'text' },
     ].filter(c => c.key);
 
     const thHtml = colVisibility.map(c => `<th>${c.label}</th>`).join('');
-    const inputDefaults = {
-      'catalogo': '',
-      'textarea': '',
-      'number': '0',
-      'text': '',
-    };
 
     const html = `
       <div class="form-section">
@@ -721,7 +708,7 @@ const FormBuilder = {
         <div class="items-table-wrapper">
           <table class="items-table" id="itemsTable">
             <thead><tr>
-              <th>#</th>${thHtml}<th class="col-accion">Acción</th>
+              <th>#</th>${thHtml}<th class="col-accion">Acci\u00f3n</th>
             </tr></thead>
             <tbody id="itemsTableBody"></tbody>
           </table>
@@ -742,7 +729,7 @@ const FormBuilder = {
     this.agregarFilaInsumo();
   },
 
-  agregarFilaInsumo() {
+    agregarFilaInsumo() {
     const tbody = document.getElementById('itemsTableBody');
     if (!tbody) return;
     const idx = tbody.children.length + 1;
@@ -752,12 +739,13 @@ const FormBuilder = {
       if (col.type === 'catalogo') {
         const rowIdx = tbody.children.length;
         const id = `it-${col.key}-${rowIdx}`;
-        return `<td class="td-codigo"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="Código..." autocomplete="off"></div></td>`;
+        const placeholder = col.label === 'Tipo Examen' ? 'Tipo examen...' : 'C\u00f3digo...';
+        return `<td class="td-codigo"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${placeholder}" autocomplete="off"></div></td>`;
       }
       if (col.type === 'textarea') {
         const rowIdx = tbody.children.length;
         const id = `it-${col.key}-${rowIdx}`;
-        return `<td class="td-nombre"><textarea id="${id}" data-item-key="${col.key}" rows="1" placeholder="Descripción..." readonly></textarea></td>`;
+        return `<td class="td-nombre"><textarea id="${id}" data-item-key="${col.key}" rows="1" placeholder="Descripci\u00f3n..." readonly></textarea></td>`;
       }
       if (col.type === 'number') {
         const rowIdx = tbody.children.length;
@@ -774,30 +762,20 @@ const FormBuilder = {
     tbody.appendChild(tr);
 
     const nombreKey = colVisibility.find(c => c.type === 'textarea')?.key;
-    const codigoInput = tr.querySelector('input[data-catalogo]');
-    if (codigoInput && nombreKey) {
-      codigoInput.dataset.targetdesc = nombreKey;
-      Autocomplete.configurar(codigoInput, codigoInput.dataset.catalogo, 'codigo', 'descripcion');
+    const catalogoInputs = tr.querySelectorAll('input[data-catalogo]');
+    catalogoInputs.forEach(inp => {
+      Autocomplete.configurar(inp, inp.dataset.catalogo, 'codigo', 'descripcion');
+    });
+    const codigoField = colVisibility.find(c => c.label === 'C\u00f3digo');
+    if (codigoField) {
+      const codigoInput = tr.querySelector(`input[data-item-key="${codigoField.key}"]`);
+      if (codigoInput && nombreKey) codigoInput.dataset.targetdesc = nombreKey;
     }
 
     tr.querySelector('.btn-quitar-fila')?.addEventListener('click', () => {
       tr.remove();
       this.renumerarFilas();
-      this.calcularValorTotalFila(tr);
     });
-
-    const cantidadInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Cantidad')?.key}"]`);
-    const valorUnitInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Valor Unit.')?.key}"]`);
-    const valorTotalInput = tr.querySelector(`input[data-item-key="${colVisibility.find(c => c.label === 'Valor Total')?.key}"]`);
-    const calcTotal = () => {
-      if (cantidadInput && valorUnitInput && valorTotalInput) {
-        const c = parseFloat(cantidadInput.value) || 0;
-        const v = parseFloat(valorUnitInput.value) || 0;
-        valorTotalInput.value = (c * v).toFixed(2);
-      }
-    };
-    cantidadInput?.addEventListener('input', calcTotal);
-    valorUnitInput?.addEventListener('input', calcTotal);
   },
 
   renumerarFilas() {
