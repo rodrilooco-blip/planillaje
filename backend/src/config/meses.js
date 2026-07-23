@@ -38,10 +38,12 @@ function buscarNombreArchivoVariaciones(tipo, anio, mes) {
   const nomMes = NOMBRES_MESES[(mes || 1) - 1];
   const t = tipo === 'hospitalizacion' ? 'HOSPITALIZACION' : 'EMERGENCIA';
   return [
-    t + '_' + nomMes + '_' + anio,             // HOSPITALIZACION_JULIO_2026
+    t + '_' + nomMes + '_' + anio,                    // HOSPITALIZACION_JULIO_2026
     t + '_' + nomMes + '_' + String(anio).slice(-2),  // HOSPITALIZACION_JULIO_26
-    nomMes + ' ' + anio + ' ' + t,             // JULIO 2026 HOSPITALIZACION
-    nomMes + '_' + t,                          // JULIO_HOSPITALIZACION
+    'PLANO_' + t + '_' + nomMes,                      // PLANO_HOSPITALIZACION_AGOSTO
+    'PLANO_' + t,                                     // PLANO_HOSPITALIZACION
+    nomMes + ' ' + anio + ' ' + t,                    // JULIO 2026 HOSPITALIZACION
+    nomMes + '_' + t,                                 // JULIO_HOSPITALIZACION
   ];
 }
 

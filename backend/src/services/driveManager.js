@@ -160,6 +160,19 @@ async function buscarCarpetaPorNombre(anio, mesNum) {
     const escaped = nombreCarpeta.replace(/'/g, "\\'");
     try {
       const res = await drive.files.list({
+        q: `mimeType='application/vnd.google-apps.folder' and name='${escaped}' and '${config.googleDriveFolderId}' in parents and trashed=false`,
+        fields: 'files(id,name,parents)',
+        pageSize: 5,
+      });
+      const files = res.data.files || [];
+      if (files.length > 0) return files[0];
+    } catch (e) { /* ignore */ }
+  }
+  // Fallback: buscar en todo el Drive visible
+  for (const nombreCarpeta of nombres) {
+    const escaped = nombreCarpeta.replace(/'/g, "\\'");
+    try {
+      const res = await drive.files.list({
         q: `mimeType='application/vnd.google-apps.folder' and name='${escaped}' and trashed=false`,
         fields: 'files(id,name,parents)',
         pageSize: 5,
@@ -172,22 +185,50 @@ async function buscarCarpetaPorNombre(anio, mesNum) {
 }
 
 async function buscarSpreadsheetPorNombre(tipo, anio, mesNum, carpetaId) {
+  if (!carpetaId) return null;
   const drive = await getDriveClient();
   const nombres = meses.buscarNombreArchivoVariaciones(tipo, anio, mesNum);
+
+  // Primero probar búsqueda exacta por nombre
   for (const nombreArchivo of nombres) {
     const escaped = nombreArchivo.replace(/'/g, "\\'");
     try {
       const res = await drive.files.list({
-        q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${escaped}' and trashed=false`,
-        fields: 'files(id,name,parents)',
+        q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${escaped}' and '${carpetaId}' in parents and trashed=false`,
+        fields: 'files(id,name)',
         pageSize: 10,
       });
       const files = res.data.files || [];
-      const enCarpeta = carpetaId ? files.filter(f => f.parents && f.parents.includes(carpetaId)) : files;
-      if (enCarpeta.length > 0) return enCarpeta[0];
-      if (files.length > 0 && !carpetaId) return files[0];
+      if (files.length > 0) {
+        console.log('[DriveManager] Spreadsheet encontrado por nombre "' + nombreArchivo + '"');
+        return files[0];
+      }
     } catch (e) { /* ignore */ }
   }
+
+  // Fallback: listar todos los spreadsheets en la carpeta y matchear por tipo
+  try {
+    const res = await drive.files.list({
+      q: `mimeType='application/vnd.google-apps.spreadsheet' and '${carpetaId}' in parents and trashed=false`,
+      fields: 'files(id,name)',
+      pageSize: 50,
+    });
+    const files = res.data.files || [];
+    const t = tipo === 'hospitalizacion' ? 'HOSPITALIZACION' : 'EMERGENCIA';
+    for (const f of files) {
+      const name = f.name.toUpperCase();
+      if (name.includes(t)) {
+        console.log('[DriveManager] Spreadsheet encontrado por listado en carpeta: "' + f.name + '"');
+        return f;
+      }
+    }
+    // Si solo hay un spreadsheet en la carpeta, asumir que es de este tipo
+    if (files.length === 1) {
+      console.log('[DriveManager] Unico spreadsheet en carpeta: "' + files[0].name + '"');
+      return files[0];
+    }
+  } catch (e) { /* ignore */ }
+
   return null;
 }
 
