@@ -3,18 +3,101 @@ const FormBuilder = {
   currentHoja: null,
   fieldMap: {},
 
-  secciones: [
-    { id: 'paciente', titulo: 'Datos del Paciente', keywords: ['IDENTIFICACION', 'APELLIDOS', 'FECHA NACIMIENTO', 'EDAD', 'SEXO', 'PARENTESCO', 'TIPO BENEFICIARIO', 'DEPENDENCIA', 'NO. PACIENTE', 'NO PACIENTE'] },
-    { id: 'fechas', titulo: 'Fechas', keywords: ['FECHA ATENCION', 'FECHA DE INGRESO', 'FECHA DE EGRESO', 'FECHA INGRESO', 'FECHA EGRESO'] },
-    { id: 'procedimiento', titulo: 'Procedimiento / Medicamento', keywords: ['PROCEDIMIENTO', 'CANTIDAD', 'VALOR UNITARIO', 'VALOR TOTAL', 'DURACION', 'TIEMPO', 'ANESTESIA'] },
-    { id: 'diagnostico', titulo: 'Diagn\u00f3stico', keywords: ['DIAGN\u00d3STICO', 'DIAGNOSTICO', 'DG.', 'CIE'] },
-    { id: 'examen', titulo: 'Examen', keywords: ['EXAMEN'] },
-    { id: 'titular', titulo: 'Titular / Afiliado', keywords: ['AFILIADO', 'TITULAR'] },
-    { id: 'derivacion', titulo: 'Derivaci\u00f3n', keywords: ['DERIVACION', 'SECUENCIAL', 'CONTINGENCIA'] },
-    { id: 'accidente', titulo: 'Datos del Accidente (SPPAT)', keywords: ['ACCIDENTE', 'VEH\u00cdCULO', 'VEHICULO', 'PLACA', 'PROVINCIA', 'CANT\u00d3N', 'CANTON', 'UNICODIGO', 'EVIDENCIA'] },
-    { id: 'cobertura', titulo: 'Cobertura', keywords: ['COBERTURA', 'PRESTACION', 'DISCAPACIDAD', 'MEDICO', 'OBSERVACION'] },
-    { id: 'otros', titulo: 'Otros Datos', keywords: [] },
+  ordenSecciones: [
+    { id: 'paciente', titulo: '1. Datos del Paciente', campos: [
+      { keywords: ['DEPENDENCIA'] },
+      { keywords: ['TIPO_BENEFICIARIO'] },
+      { keywords: ['IDENTIFICACION', 'BENEFICIARIO'] },
+      { keywords: ['APELLIDOS', 'BENEFICIARIO'] },
+      { keywords: ['SEXO'] },
+      { keywords: ['FECHA_NACIMIENTO'] },
+      { keywords: ['EDAD'] },
+      { keywords: ['PARENTESCO'] },
+      { keywords: ['IDENTIFICACION', 'AFILIADO'] },
+      { keywords: ['APELLIDOS', 'TITULAR'] },
+      { keywords: ['NOMBRES', 'TITULAR'] },
+      { keywords: ['IDENTIFICACION', 'TITULAR'] },
+      { keywords: ['NOMBRES'] },
+    ]},
+    { id: 'fechas', titulo: '2. Fechas', campos: [
+      { keywords: ['FECHA_ATENCION'] },
+      { keywords: ['FECHA_INGRESO'] },
+      { keywords: ['FECHA_EGRESO'] },
+      { keywords: ['FECHA'] },
+    ]},
+    { id: 'diagnostico', titulo: '3. Diagn\u00f3stico', campos: [
+      { keywords: ['NO_PACIENTE', 'NUMERO_PACIENTE'] },
+      { keywords: ['DIAGNOSTICO', 'PRINCIPAL'] },
+      { keywords: ['TIPO_DIAGNOSTICO'] },
+      { keywords: ['DIAGNOSTICO', 'SECUNDARIO'] },
+      { keywords: ['DG_S_1', 'DG_S - 1', 'DG. S - 1', 'DG_S_1'] },
+      { keywords: ['DG_S_2', 'DG_S - 2', 'DG. S - 2', 'DG_S_2'] },
+      { keywords: ['DG_S_3', 'DG_S - 3', 'DG. S - 3', 'DG_S_3'] },
+      { keywords: ['DG_S_4', 'DG_S - 4', 'DG. S - 4', 'DG_S_4'] },
+      { keywords: ['DG_S_5', 'DG_S - 5', 'DG. S - 5', 'DG_S_5'] },
+      { keywords: ['CIE'] },
+    ]},
+    { id: 'examen', titulo: 'Examen', campos: [
+      { keywords: ['EXAMEN'] },
+    ]},
+    { id: 'procedimiento', titulo: '4. Procedimientos / Insumos', campos: [] },
+    { id: 'derivacion', titulo: '5. Derivaci\u00f3n', campos: [
+      { keywords: ['CODIGO_DERIVACION'] },
+      { keywords: ['SECUENCIAL', 'DERIVACION'] },
+      { keywords: ['CONTINGENCIA'] },
+    ]},
+    { id: 'accidente', titulo: 'Datos del Accidente (SPPAT)', campos: [
+      { keywords: ['ACCIDENTE'] },
+      { keywords: ['VEHICULO'] },
+      { keywords: ['PLACA'] },
+      { keywords: ['PROVINCIA'] },
+      { keywords: ['CANTON'] },
+      { keywords: ['UNICODIGO'] },
+      { keywords: ['EVIDENCIA'] },
+    ]},
+    { id: 'cobertura', titulo: 'Cobertura', campos: [
+      { keywords: ['COBERTURA'] },
+      { keywords: ['PRESTACION'] },
+      { keywords: ['DISCAPACIDAD'] },
+      { keywords: ['OBSERVACION'] },
+    ]},
+    { id: 'otros', titulo: '6. Otros Datos', campos: [
+      { keywords: ['DURACION'] },
+      { keywords: ['PORCENTAJE', 'IVA'] },
+      { keywords: ['VALOR', 'IVA'] },
+      { keywords: ['VALOR_UNITARIO'] },
+      { keywords: ['VALOR_TOTAL'] },
+      { keywords: ['CANTIDAD'] },
+      { keywords: ['MARCA_FINAL'] },
+      { keywords: ['UNIDAD_OPERATIVA'] },
+      { keywords: ['PROFESIONAL'] },
+      { keywords: ['MEDICO'] },
+      { keywords: ['ARCHIVO'] },
+      { keywords: ['PAGINA'] },
+      { keywords: ['ANESTESIA'] },
+      { keywords: ['TIEMPO'] },
+    ]},
   ],
+
+  getKeySimple(str) {
+    return str.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
+  },
+
+  normalizarPatronKeyword(str) {
+    return str.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
+  },
+
+  encontrarColumna(columnas, patrones, usadas) {
+    for (const col of columnas) {
+      if (usadas.has(col)) continue;
+      const key = this.getKey(col.nombre);
+      for (const patron of patrones) {
+        const p = this.normalizarPatronKeyword(patron);
+        if (key.includes(p)) return col;
+      }
+    }
+    return null;
+  },
 
   limpiarNombreColumna(nombre) {
     let n = nombre || '';
@@ -47,16 +130,6 @@ const FormBuilder = {
     return limpio.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
   },
 
-  getSeccionId(nombre) {
-    const n = this.limpiarNombreColumna(nombre).toUpperCase();
-    for (const s of this.secciones) {
-      for (const kw of s.keywords) {
-        if (n.includes(kw.toUpperCase())) return s.id;
-      }
-    }
-    return 'otros';
-  },
-
   async build(tipo, hoja, editFila) {
     this.currentTipo = tipo;
     this.currentHoja = hoja;
@@ -84,92 +157,55 @@ const FormBuilder = {
     this.fieldMap = {};
     this.camposRepetibles = [];
 
-    const seccionesHtml = {};
-    for (const s of this.secciones) seccionesHtml[s.id] = '';
-
-    columnas.forEach(col => {
-      const nombre = col.nombre;
-      if (!nombre) return;
-
-      const key = this.getKey(nombre);
-      const labelText = this.formatearLabel(nombre);
-      const seccionId = this.getSeccionId(nombre);
-      const esRepetible = this.esCampoRepetible(nombre);
-      if (esRepetible) {
-        this.camposRepetibles.push({ key, labelText, nombre });
-        return;
-      }
-      let inputHtml;
-
-      if (this.esCampoBloqueado(nombre)) {
-        inputHtml = `<input type="text" id="f-${key}" name="${key}" value="${this.getValorFijo(nombre)}" disabled>`;
-      } else if (this.esCampoFecha(nombre)) {
-        const val = Utils.getFechaHoy();
-        inputHtml = `<input type="date" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
-      } else if (this.esCampoSelect(nombre)) {
-        const nSel = this.limpiarNombreColumna(nombre).toUpperCase();
-        const esParentesco = nSel.includes('PARENTESCO');
-        const esCanton = nSel.includes('CANTON') || nSel.includes('CANTÓN');
-        const esVehiculo = (nSel.includes('VEHICULO') || nSel.includes('VEHÍCULO')) && nSel.includes('TIPO');
-        let optionsHtml;
-        if (esParentesco) {
-          optionsHtml = [
-            '<option value="">Seleccione...</option>',
-            '<option value="T">T = Titular</option>',
-            '<option value="C">C = Conyuge</option>',
-            '<option value="H">H = Hijo/a</option>',
-            '<option value="X">X = Pariente</option>',
-          ].join('');
-        } else if (esCanton) {
-          optionsHtml = [
-            '<option value="">Seleccione cant\u00f3n...</option>',
-            '<option value="601">601 = Riobamba</option>',
-            '<option value="602">602 = Alausi</option>',
-            '<option value="603">603 = Colta</option>',
-            '<option value="604">604 = Chambo</option>',
-            '<option value="605">605 = Chunchi</option>',
-            '<option value="606">606 = Guamote</option>',
-            '<option value="607">607 = Guano</option>',
-          ].join('');
-        } else if (esVehiculo) {
-          optionsHtml = [
-            '<option value="">Seleccione tipo...</option>',
-            '<option value="A">A = Automovil o camioneta</option>',
-            '<option value="B">B = Motocicleta excepto electrica</option>',
-            '<option value="C">C = Camion</option>',
-            '<option value="D">D = Especial (Ambulancia, blindado, concretera, grua, motobomba, recolector, wincha)</option>',
-            '<option value="E">E = Bus</option>',
-            '<option value="F">F = Tanquero</option>',
-            '<option value="G">G = Trailer</option>',
-            '<option value="H">H = Volqueta</option>',
-            '<option value="Z">Z = Desconocido</option>',
-          ].join('');
-        } else {
-          optionsHtml = '<option value="">Seleccione dependencia...</option>';
-        }
-        inputHtml = `<select id="f-${key}" name="${key}">${optionsHtml}</select>`;
-      } else if (this.esCampoNombreLargo(nombre)) {
-        inputHtml = `<textarea id="f-${key}" name="${key}" rows="4" placeholder="${labelText}"></textarea>`;
-      } else if (this.esCampoCatalogo(nombre)) {
-        const catalogo = this.getCatalogoNombre(nombre);
-        inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="${catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${labelText}"></div>`;
-      } else if (this.esCampoNumero(nombre)) {
-        const val = '';
-        inputHtml = `<input type="number" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
-      } else {
-        inputHtml = `<input type="text" id="f-${key}" name="${key}" placeholder="${labelText}">`;
-      }
-
-      const esNombreLargo = this.esCampoNombreLargo(nombre);
-      seccionesHtml[seccionId] += `<div class="form-group${esNombreLargo ? ' full-width' : ''}"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
-      this.fieldMap[key] = nombre;
-    });
-
     let html = '';
-    for (const s of this.secciones) {
-      if (s.id === 'procedimiento') continue;
-      if (seccionesHtml[s.id]) {
-        html += `<div class="form-section"><div class="form-section-title">${s.titulo}</div><div class="form-grid">${seccionesHtml[s.id]}</div></div>`;
+    const usadas = new Set();
+    const repetiblesPorSeccion = {};
+
+    for (const seccion of this.ordenSecciones) {
+      if (seccion.campos.length === 0 && seccion.id !== 'procedimiento') continue;
+      if (seccion.id === 'procedimiento') {
+        // Collect repeated fields from all remaining columns
+        columnas.forEach(col => {
+          if (usadas.has(col)) return;
+          if (!col.nombre) return;
+          if (this.esCampoRepetible(col.nombre)) {
+            const key = this.getKey(col.nombre);
+            const labelText = this.formatearLabel(col.nombre);
+            this.camposRepetibles.push({ key, labelText, nombre: col.nombre });
+            usadas.add(col);
+          }
+        });
+        continue;
+      }
+
+      let seccionHtml = '';
+      for (const campo of seccion.campos) {
+        const col = this.encontrarColumna(columnas, campo.keywords, usadas);
+        if (!col) continue;
+        usadas.add(col);
+        seccionHtml += this.renderCampoUnico(col);
+      }
+
+      if (seccionHtml) {
+        html += `<div class="form-section"><div class="form-section-title">${seccion.titulo}</div><div class="form-grid">${seccionHtml}</div></div>`;
+      }
+    }
+
+    // Render unmatched columns at the end
+    const restantes = columnas.filter(col => !usadas.has(col) && col.nombre);
+    if (restantes.length > 0) {
+      let restHtml = '';
+      for (const col of restantes) {
+        if (this.esCampoRepetible(col.nombre)) {
+          const key = this.getKey(col.nombre);
+          const labelText = this.formatearLabel(col.nombre);
+          this.camposRepetibles.push({ key, labelText, nombre: col.nombre });
+        } else {
+          restHtml += this.renderCampoUnico(col);
+        }
+      }
+      if (restHtml) {
+        html += `<div class="form-section"><div class="form-section-title">Otros Datos</div><div class="form-grid">${restHtml}</div></div>`;
       }
     }
 
@@ -219,6 +255,75 @@ const FormBuilder = {
 
     // Verificar estado de sincronizaci�n al cargar
     this.verificarSyncStatus();
+  },
+
+  renderCampoUnico(col) {
+    const nombre = col.nombre;
+    const key = this.getKey(nombre);
+    const labelText = this.formatearLabel(nombre);
+    let inputHtml;
+
+    if (this.esCampoBloqueado(nombre)) {
+      inputHtml = `<input type="text" id="f-${key}" name="${key}" value="${this.getValorFijo(nombre)}" disabled>`;
+    } else if (this.esCampoFecha(nombre)) {
+      const val = Utils.getFechaHoy();
+      inputHtml = `<input type="date" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
+    } else if (this.esCampoSelect(nombre)) {
+      const nSel = this.limpiarNombreColumna(nombre).toUpperCase();
+      const esParentesco = nSel.includes('PARENTESCO');
+      const esCanton = nSel.includes('CANTON') || nSel.includes('CANT\u00d3N');
+      const esVehiculo = (nSel.includes('VEHICULO') || nSel.includes('VEH\u00cdCULO')) && nSel.includes('TIPO');
+      let optionsHtml;
+      if (esParentesco) {
+        optionsHtml = [
+          '<option value="">Seleccione...</option>',
+          '<option value="T">T = Titular</option>',
+          '<option value="C">C = Conyuge</option>',
+          '<option value="H">H = Hijo/a</option>',
+          '<option value="X">X = Pariente</option>',
+        ].join('');
+      } else if (esCanton) {
+        optionsHtml = [
+          '<option value="">Seleccione cant\u00f3n...</option>',
+          '<option value="601">601 = Riobamba</option>',
+          '<option value="602">602 = Alausi</option>',
+          '<option value="603">603 = Colta</option>',
+          '<option value="604">604 = Chambo</option>',
+          '<option value="605">605 = Chunchi</option>',
+          '<option value="606">606 = Guamote</option>',
+          '<option value="607">607 = Guano</option>',
+        ].join('');
+      } else if (esVehiculo) {
+        optionsHtml = [
+          '<option value="">Seleccione tipo...</option>',
+          '<option value="A">A = Automovil o camioneta</option>',
+          '<option value="B">B = Motocicleta excepto electrica</option>',
+          '<option value="C">C = Camion</option>',
+          '<option value="D">D = Especial (Ambulancia, blindado, concretera, grua, motobomba, recolector, wincha)</option>',
+          '<option value="E">E = Bus</option>',
+          '<option value="F">F = Tanquero</option>',
+          '<option value="G">G = Trailer</option>',
+          '<option value="H">H = Volqueta</option>',
+          '<option value="Z">Z = Desconocido</option>',
+        ].join('');
+      } else {
+        optionsHtml = '<option value="">Seleccione dependencia...</option>';
+      }
+      inputHtml = `<select id="f-${key}" name="${key}">${optionsHtml}</select>`;
+    } else if (this.esCampoNombreLargo(nombre)) {
+      inputHtml = `<textarea id="f-${key}" name="${key}" rows="4" placeholder="${labelText}"></textarea>`;
+    } else if (this.esCampoCatalogo(nombre)) {
+      const catalogo = this.getCatalogoNombre(nombre);
+      inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="${catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${labelText}"></div>`;
+    } else if (this.esCampoNumero(nombre)) {
+      inputHtml = `<input type="number" id="f-${key}" name="${key}" value="" placeholder="${labelText}">`;
+    } else {
+      inputHtml = `<input type="text" id="f-${key}" name="${key}" placeholder="${labelText}">`;
+    }
+
+    const esNombreLargo = this.esCampoNombreLargo(nombre);
+    this.fieldMap[key] = nombre;
+    return `<div class="form-group${esNombreLargo ? ' full-width' : ''}"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
   },
 
   async verificarSyncStatus() {
