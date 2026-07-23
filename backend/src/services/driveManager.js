@@ -51,14 +51,17 @@ async function listarArchivosSADrive() {
   return res.data.files || [];
 }
 
-async function limpiarSADrive(secoId = null) {
+async function limpiarSADrive(secoId = null, todo = false) {
   const drive = await getDriveClient();
   const archivos = secoId ? [{ id: secoId }] : await listarArchivosSADrive();
   const eliminados = [];
   const noEliminados = [];
   for (const f of archivos) {
-    // No tocar archivos dentro de la carpeta compartida del proyecto
-    if (f.parents && f.parents.includes(config.googleDriveFolderId)) continue;
+    // Saltar el folder principal compartido (no lo borramos!)
+    if (f.id === config.googleDriveFolderId) continue;
+    // Saltar archivos dentro de la carpeta compartida a menos que se indique borrar todo
+    if (!todo && f.parents && f.parents.includes(config.googleDriveFolderId)) continue;
+    // Saltar tambien archivos compartidos hacia el SA por el usuario (no creados por SA, no se pueden eliminar)
     try {
       await drive.files.delete({ fileId: f.id });
       eliminados.push({ id: f.id, name: f.name, mimeType: f.mimeType });

@@ -177,7 +177,8 @@ router.get('/meses/diagnostico', lecturas, async (req, res) => {
 
 router.post('/meses/limpiar-sa-drive', escrituras, async (req, res) => {
   try {
-    const result = await driveManager.limpiarSADrive();
+    const todo = req.body && req.body.todo === true;
+    const result = await driveManager.limpiarSADrive(null, todo);
     res.json({ exito: true, result });
   } catch (err) {
     res.status(500).json({ error: 'Error limpiando SA Drive: ' + err.message });
