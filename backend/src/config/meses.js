@@ -17,13 +17,32 @@ function generarNombre(anio, mes) {
 }
 
 function generarNombreCarpeta(anio, mes) {
-  return String(anio) + '_' + NOMBRES_MESES[(mes || 1) - 1];
+  return String(anio).slice(-2) + '_' + NOMBRES_MESES[(mes || 1) - 1];
 }
 
 function generarNombreArchivo(tipo, anio, mes) {
   const nomMes = NOMBRES_MESES[(mes || 1) - 1];
   const t = tipo === 'hospitalizacion' ? 'HOSPITALIZACION' : 'EMERGENCIA';
   return t + '_' + nomMes + '_' + anio;
+}
+
+function buscarNombreCarpetaVariaciones(anio, mes) {
+  const nomMes = NOMBRES_MESES[(mes || 1) - 1];
+  return [
+    String(anio).slice(-2) + '_' + nomMes,     // 26_JULIO
+    anio + '_' + nomMes,                       // 2026_JULIO
+  ];
+}
+
+function buscarNombreArchivoVariaciones(tipo, anio, mes) {
+  const nomMes = NOMBRES_MESES[(mes || 1) - 1];
+  const t = tipo === 'hospitalizacion' ? 'HOSPITALIZACION' : 'EMERGENCIA';
+  return [
+    t + '_' + nomMes + '_' + anio,             // HOSPITALIZACION_JULIO_2026
+    t + '_' + nomMes + '_' + String(anio).slice(-2),  // HOSPITALIZACION_JULIO_26
+    nomMes + ' ' + anio + ' ' + t,             // JULIO 2026 HOSPITALIZACION
+    nomMes + '_' + t,                          // JULIO_HOSPITALIZACION
+  ];
 }
 
 function obtenerNombresTabs(tipo) {
@@ -39,6 +58,8 @@ module.exports = {
   generarNombre,
   generarNombreCarpeta,
   generarNombreArchivo,
+  buscarNombreCarpetaVariaciones,
+  buscarNombreArchivoVariaciones,
   obtenerNombresTabs,
   nombresMeses,
 };

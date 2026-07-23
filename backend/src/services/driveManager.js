@@ -153,26 +153,42 @@ async function copiarEncabezados(origenSheetId, origenTab, destinoSheetId, destT
   }
 }
 
-async function buscarCarpetaPorNombre(nombreCarpeta) {
+async function buscarCarpetaPorNombre(anio, mesNum) {
   const drive = await getDriveClient();
-  const res = await drive.files.list({
-    q: `mimeType='application/vnd.google-apps.folder' and name='${nombreCarpeta.replace(/'/g, "\\'")}' and trashed=false`,
-    fields: 'files(id,name,parents)',
-    pageSize: 5,
-  });
-  return res.data.files || [];
+  const nombres = meses.buscarNombreCarpetaVariaciones(anio, mesNum);
+  for (const nombreCarpeta of nombres) {
+    const escaped = nombreCarpeta.replace(/'/g, "\\'");
+    try {
+      const res = await drive.files.list({
+        q: `mimeType='application/vnd.google-apps.folder' and name='${escaped}' and trashed=false`,
+        fields: 'files(id,name,parents)',
+        pageSize: 5,
+      });
+      const files = res.data.files || [];
+      if (files.length > 0) return files[0];
+    } catch (e) { /* ignore */ }
+  }
+  return null;
 }
 
-async function buscarSpreadsheetPorNombre(nombreArchivo, carpetaId) {
+async function buscarSpreadsheetPorNombre(tipo, anio, mesNum, carpetaId) {
   const drive = await getDriveClient();
-  const res = await drive.files.list({
-    q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${nombreArchivo.replace(/'/g, "\\'")}' and trashed=false`,
-    fields: 'files(id,name,parents)',
-    pageSize: 10,
-  });
-  const all = res.data.files || [];
-  if (carpetaId) return all.filter(f => f.parents && f.parents.includes(carpetaId));
-  return all;
+  const nombres = meses.buscarNombreArchivoVariaciones(tipo, anio, mesNum);
+  for (const nombreArchivo of nombres) {
+    const escaped = nombreArchivo.replace(/'/g, "\\'");
+    try {
+      const res = await drive.files.list({
+        q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${escaped}' and trashed=false`,
+        fields: 'files(id,name,parents)',
+        pageSize: 10,
+      });
+      const files = res.data.files || [];
+      const enCarpeta = carpetaId ? files.filter(f => f.parents && f.parents.includes(carpetaId)) : files;
+      if (enCarpeta.length > 0) return enCarpeta[0];
+      if (files.length > 0 && !carpetaId) return files[0];
+    } catch (e) { /* ignore */ }
+  }
+  return null;
 }
 
 async function crearMes(anio, mesNum) {
@@ -185,12 +201,12 @@ async function crearMes(anio, mesNum) {
     return existente;
   }
 
-  // 1) Buscar carpeta existente en Drive por nombre
+  // 1) Buscar carpeta existente en Drive por nombre (con variaciones)
   let carpetaId = null;
-  const carpetas = await buscarCarpetaPorNombre(nombreCarpeta);
-  if (carpetas.length > 0) {
-    carpetaId = carpetas[0].id;
-    console.log('[DriveManager] Carpeta ya existe en Drive: ' + nombreCarpeta + ' [' + carpetaId + ']');
+  const carpetaExistente = await buscarCarpetaPorNombre(anio, mesNum);
+  if (carpetaExistente) {
+    carpetaId = carpetaExistente.id;
+    console.log('[DriveManager] Carpeta ya existe en Drive: "' + carpetaExistente.name + '" [' + carpetaId + ']');
   } else {
     console.log('[DriveManager] Creando carpeta: ' + nombreCarpeta);
     carpetaId = await crearCarpeta(nombreCarpeta);
@@ -202,12 +218,12 @@ async function crearMes(anio, mesNum) {
   for (const tipo of tipos) {
     const nombreArchivo = meses.generarNombreArchivo(tipo, anio, mesNum);
 
-    // 2) Buscar spreadsheet existente en la carpeta
+    // 2) Buscar spreadsheet existente en la carpeta (con variaciones de nombre)
     let sheetId = null;
-    const existentes = await buscarSpreadsheetPorNombre(nombreArchivo, carpetaId);
-    if (existentes.length > 0) {
-      sheetId = existentes[0].id;
-      console.log('[DriveManager] Spreadsheet ya existe: ' + nombreArchivo + ' [' + sheetId + ']');
+    const spreadsheetExistente = await buscarSpreadsheetPorNombre(tipo, anio, mesNum, carpetaId);
+    if (spreadsheetExistente) {
+      sheetId = spreadsheetExistente.id;
+      console.log('[DriveManager] Spreadsheet ya existe: "' + spreadsheetExistente.name + '" [' + sheetId + ']');
     } else {
       console.log('[DriveManager] Creando spreadsheet: ' + nombreArchivo);
       sheetId = await crearSpreadsheet(nombreArchivo, carpetaId);
