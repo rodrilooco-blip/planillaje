@@ -304,6 +304,23 @@ const FormBuilder = {
           '<option value="H">H = Volqueta</option>',
           '<option value="Z">Z = Desconocido</option>',
         ].join('');
+      } else if (nSel === 'SEXO') {
+        optionsHtml = [
+          '<option value="">Seleccione...</option>',
+          '<option value="M">M = Masculino</option>',
+          '<option value="F">F = Femenino</option>',
+        ].join('');
+      } else if (nSel.includes('CONTINGENCIA')) {
+        optionsHtml = [
+          '<option value="">Seleccione...</option>',
+          '<option value="1">1 = Enfermedad</option>',
+          '<option value="2">2 = Maternidad</option>',
+          '<option value="3">3 = Enfermedad Profesional</option>',
+          '<option value="4">4 = Accidente del Trabajo</option>',
+          '<option value="5">5 = Reposo Prenatal</option>',
+          '<option value="6">6 = Accidente de Tránsito</option>',
+          '<option value="7">7 = Enfermedad Catastrófica</option>',
+        ].join('');
       } else {
         optionsHtml = '<option value="">Seleccione dependencia...</option>';
       }
@@ -375,7 +392,8 @@ const FormBuilder = {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     const esVehiculo = (n.includes('VEHICULO') || n.includes('VEHÍCULO')) && n.includes('TIPO');
     return n.includes('DEPENDENCIA') || n.includes('PARENTESCO') ||
-           n.includes('CANTON') || n.includes('CANTÓN') || esVehiculo;
+           n.includes('CANTON') || n.includes('CANTÓN') || esVehiculo ||
+           n === 'SEXO' || n.includes('CONTINGENCIA');
   },
 
   async cargarSelectDependencia() {
