@@ -46,7 +46,7 @@ async function listarArchivosSADrive() {
   const res = await drive.files.list({
     pageSize: 100,
     fields: 'files(id,name,mimeType,parents,size,createdTime,trashed)',
-    q: "'root' in parents and trashed=false",
+    q: "trashed=false",
   });
   return res.data.files || [];
 }
@@ -57,10 +57,11 @@ async function limpiarSADrive(secoId = null) {
   const eliminados = [];
   const noEliminados = [];
   for (const f of archivos) {
+    // No tocar archivos dentro de la carpeta compartida del proyecto
     if (f.parents && f.parents.includes(config.googleDriveFolderId)) continue;
     try {
       await drive.files.delete({ fileId: f.id });
-      eliminados.push({ id: f.id, name: f.name });
+      eliminados.push({ id: f.id, name: f.name, mimeType: f.mimeType });
     } catch (e) {
       noEliminados.push({ id: f.id, name: f.name, error: e.message });
     }
