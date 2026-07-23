@@ -53,6 +53,35 @@ async function agregarFila(sheetId, rango, valores) {
   return res.data;
 }
 
+// Append a single row and return its row number
+async function appendRow(sheetId, hoja, valores) {
+  const data = await agregarFila(sheetId, `${hoja}!A1`, valores);
+  const range = data.updates && data.updates.updatedRange;
+  const match = range ? range.match(/(\d+)/g) : null;
+  const rowNum = match ? parseInt(match[match.length - 1], 10) : null;
+  return rowNum;
+}
+
+// Append multiple rows (batch) and return array of row numbers
+async function appendRows(sheetId, hoja, filasValores) {
+  const client = await getSheetsClient();
+  const res = await client.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `${hoja}!A1`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    resource: { values: filasValores },
+  });
+  const range = res.data.updates && res.data.updates.updatedRange;
+  const match = range ? range.match(/(\d+)/g) : null;
+  if (!match || match.length < 2) return filasValores.map(() => null);
+  const startRow = parseInt(match[0], 10);
+  const endRow = parseInt(match[match.length - 1], 10);
+  const rowNums = [];
+  for (let r = startRow; r <= endRow; r++) rowNums.push(r);
+  return rowNums;
+}
+
 async function agregarFilas(sheetId, rango, filasValores) {
   const client = await getSheetsClient();
   const res = await client.spreadsheets.values.append({
@@ -139,6 +168,8 @@ module.exports = {
   leerEncabezados,
   agregarFila,
   agregarFilas,
+  appendRow,
+  appendRows,
   actualizarFila,
   eliminarFila,
   getSheetId,

@@ -313,13 +313,26 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
 
     const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
 
-    // Guardar en SQLite (instantáneo)
-    const guardado = storage.guardarRegistro(tipo, hoja, dataCompleta);
+    // Leer encabezados
+    let encabezados = storage.obtenerEncabezados(tipo, hoja);
+    if (!encabezados) {
+      encabezados = await sheets.leerEncabezados(sheetId, hoja);
+      storage.guardarEncabezados(tipo, hoja, encabezados);
+    }
 
-    // Sincronizar con Google Sheets en background
-    syncService.pushPendientes().catch(err => console.error('[SYNC] Error push:', err.message));
+    // Mapear objeto a valores ordenados por encabezados
+    const valores = encabezados.map(h => {
+      const key = normalizarKey(h);
+      return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
+    });
 
-    res.json({ exito: true, mensaje: 'Registro guardado', id: guardado.id });
+    // 1) Guardar en Google Sheets (primario)
+    const rowNum = await sheets.appendRow(sheetId, hoja, valores);
+
+    // 2) Guardar en SQLite (cache) con fila_gs y synced=1
+    const guardado = storage.guardarRegistroConFila(tipo, hoja, dataCompleta, null, rowNum);
+
+    res.json({ exito: true, mensaje: 'Registro guardado', id: guardado.id, fila_gs: rowNum });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -332,10 +345,30 @@ router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
-    const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
     const id = parseInt(fila, 10);
+    const existente = storage.obtenerRegistro(tipo, hoja, id);
+    const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
+
+    // 1) Actualizar en Google Sheets (primario)
+    if (existente && existente.fila) {
+      let encabezados = storage.obtenerEncabezados(tipo, hoja);
+      if (!encabezados) {
+        encabezados = await sheets.leerEncabezados(sheetId, hoja);
+        storage.guardarEncabezados(tipo, hoja, encabezados);
+      }
+      const valores = encabezados.map(h => {
+        const key = normalizarKey(h);
+        return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
+      });
+      await sheets.actualizarFila(sheetId, hoja, existente.fila, valores);
+    }
+
+    // 2) Actualizar SQLite (cache)
     storage.actualizarRegistro(tipo, hoja, id, dataCompleta);
-    syncService.pushPendientes().catch(err => console.error('[SYNC] Error push update:', err.message));
+    if (existente && existente.fila) {
+      storage.marcarSynced(id, existente.fila);
+    }
+
     res.json({ exito: true, mensaje: 'Registro actualizado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -350,7 +383,16 @@ router.delete('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
 
   try {
     const id = parseInt(fila, 10);
+    const existente = storage.obtenerRegistro(tipo, hoja, id);
+
+    // 1) Eliminar de Google Sheets (primario)
+    if (existente && existente.fila) {
+      await sheets.eliminarFila(sheetId, hoja, existente.fila);
+    }
+
+    // 2) Eliminar de SQLite (cache)
     storage.eliminarRegistro(tipo, hoja, id);
+
     res.json({ exito: true, mensaje: 'Registro eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -428,10 +470,17 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
       });
     }
 
-    const ids = storage.guardarBatch(tipo, hoja, filasParaGuardar, batchId);
+    // 1) Guardar en Google Sheets (primario) — mapear cada fila a valores ordenados
+    const filasValores = filasParaGuardar.map(d =>
+      encabezados.map(h => {
+        const key = normalizarKey(h);
+        return d[key] !== undefined ? d[key] : '';
+      })
+    );
+    const filasGs = await sheets.appendRows(sheetId, hoja, filasValores);
 
-    // Sincronizar con Google Sheets en background
-    syncService.pushPendientes().catch(err => console.error('[BATCH] Sync error:', err.message));
+    // 2) Guardar en SQLite (cache) con fila_gs y synced=1
+    const ids = storage.guardarBatchConFilas(tipo, hoja, filasParaGuardar, batchId, filasGs);
 
     res.json({
       exito: true,

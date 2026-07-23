@@ -55,5 +55,11 @@ app.listen(config.port, async () => {
   console.log(`Servidor iniciado en puerto ${config.port}`);
   console.log(`Health check: http://localhost:${config.port}/api/health`);
   await preCargarCatalogos();
-  syncService.iniciarSyncAutomatico(60000);
+  // Google Sheets es primario — cargar cache al inicio
+  try {
+    await syncService.warmCache();
+  } catch (e) {
+    console.warn('[CACHE] Error en warm cache inicial:', e.message);
+  }
+  syncService.iniciarCacheRefresh(300000); // refrescar cache cada 5 min
 });

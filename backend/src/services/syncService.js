@@ -15,6 +15,7 @@ function getSpreadsheetId(tipo) {
   return null;
 }
 
+// Solo para reparación manual — Google Sheets es primario ahora
 async function pushPendientes() {
   if (syncing) return;
   syncing = true;
@@ -52,7 +53,7 @@ async function pushPendientes() {
         console.error(`[SYNC] Error push registro ${reg.id}:`, err.message);
       }
     }
-    if (pendientes.length > 0) console.log(`[SYNC] ${pendientes.length} registross sincronizados a Google Sheets`);
+    if (pendientes.length > 0) console.log(`[SYNC] ${pendientes.length} registros sincronizados a Google Sheets`);
   } finally {
     syncing = false;
   }
@@ -97,17 +98,53 @@ async function pullTodo() {
   return total;
 }
 
-let intervalId = null;
-
-function iniciarSyncAutomatico(intervaloMs = 60000) {
-  if (intervalId) return;
-  intervalId = setInterval(() => {
-    pushPendientes().catch(err => console.error('[SYNC] Error auto-push:', err.message));
-  }, intervaloMs);
-  console.log(`[SYNC] Sincronización automática activa cada ${intervaloMs / 1000}s`);
+// Warm cache al inicio: carga todos los datos de Google Sheets a SQLite
+async function warmCache() {
+  if (syncing) return;
+  syncing = true;
+  try {
+    console.log('[CACHE] Cargando datos desde Google Sheets...');
+    const meses = storage.obtenerTodosMeses();
+    let total = 0;
+    for (const mes of meses) {
+      for (const tipo of ['hospitalizacion', 'emergencia']) {
+        const sheetId = tipo === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+        if (!sheetId) continue;
+        for (const hoja of (tipo === 'hospitalizacion' ? config.hojas.hospitalizacion : config.hojas.emergencia)) {
+          try {
+            const datos = await sheets.leerSheet(sheetId, `${hoja}!A:ZZZ`);
+            if (datos.length <= 1) continue;
+            const encabezados = datos[0];
+            storage.guardarEncabezados(tipo, hoja, encabezados);
+            for (let i = 1; i < datos.length; i++) {
+              const obj = {};
+              encabezados.forEach((h, idx) => {
+                obj[storage.normalizarKey(h)] = datos[i][idx] || '';
+              });
+              storage.upsertPorFilaGs(tipo, hoja, i + 1, obj);
+              total++;
+            }
+          } catch (e) { /* hoja puede no existir aun */ }
+        }
+      }
+    }
+    console.log(`[CACHE] Cache calentado: ${total} registros cargados desde Sheets`);
+  } finally {
+    syncing = false;
+  }
 }
 
-function detenerSyncAutomatico() {
+let intervalId = null;
+
+function iniciarCacheRefresh(intervaloMs = 300000) {
+  if (intervalId) return;
+  intervalId = setInterval(() => {
+    pullTodo().catch(err => console.error('[CACHE] Error refresh:', err.message));
+  }, intervaloMs);
+  console.log(`[CACHE] Refresco automático cada ${intervaloMs / 1000}s`);
+}
+
+function detenerCacheRefresh() {
   if (intervalId) {
     clearInterval(intervalId);
     intervalId = null;
@@ -122,7 +159,8 @@ module.exports = {
   pushPendientes,
   pullHoja,
   pullTodo,
-  iniciarSyncAutomatico,
-  detenerSyncAutomatico,
+  warmCache,
+  iniciarCacheRefresh,
+  detenerCacheRefresh,
   contarPendientes,
 };

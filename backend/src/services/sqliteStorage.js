@@ -91,6 +91,14 @@ function guardarRegistro(tipo, hoja, datos, batchId = null) {
   return { id: info.lastInsertRowid, batchId };
 }
 
+function guardarRegistroConFila(tipo, hoja, datos, batchId = null, filaGs = null) {
+  const d = getDb();
+  const info = d.prepare(`INSERT INTO registros (tipo, hoja, batch_id, fila_gs, datos, synced)
+                          VALUES (?, ?, ?, ?, ?, 1)`)
+    .run(tipo, hoja, batchId, filaGs, JSON.stringify(datos));
+  return { id: info.lastInsertRowid, batchId, filaGs };
+}
+
 function guardarBatch(tipo, hoja, filasDatos, batchId = null) {
   const d = getDb();
   const tx = d.transaction((filas) => {
@@ -100,6 +108,23 @@ function guardarBatch(tipo, hoja, filasDatos, batchId = null) {
                               VALUES (?, ?, ?, ?, 0)`)
         .run(tipo, hoja, batchId, JSON.stringify(datos));
       ids.push(info.lastInsertRowid);
+    }
+    return ids;
+  });
+  return tx(filasDatos);
+}
+
+function guardarBatchConFilas(tipo, hoja, filasDatos, batchId = null, filasGs = []) {
+  const d = getDb();
+  const tx = d.transaction((filas) => {
+    const ids = [];
+    for (let i = 0; i < filas.length; i++) {
+      const datos = filas[i];
+      const filaGs = filasGs[i] || null;
+      const info = d.prepare(`INSERT INTO registros (tipo, hoja, batch_id, fila_gs, datos, synced)
+                              VALUES (?, ?, ?, ?, ?, 1)`)
+        .run(tipo, hoja, batchId, filaGs, JSON.stringify(datos));
+      ids.push({ id: info.lastInsertRowid, filaGs });
     }
     return ids;
   });
@@ -248,7 +273,9 @@ module.exports = {
   guardarEncabezados,
   obtenerEncabezados,
   guardarRegistro,
+  guardarRegistroConFila,
   guardarBatch,
+  guardarBatchConFilas,
   obtenerRegistros,
   obtenerRegistro,
   actualizarRegistro,
