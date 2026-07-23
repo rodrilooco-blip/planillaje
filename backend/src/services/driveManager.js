@@ -328,9 +328,20 @@ async function crearMes(anio, mesNum) {
   return result;
 }
 
+async function listarArchivosEnCarpeta(folderId) {
+  const drive = await getDriveClient();
+  const res = await drive.files.list({
+    q: `'${folderId}' in parents and trashed=false`,
+    fields: 'files(id,name,mimeType,parents)',
+    pageSize: 50,
+  });
+  return res.data.files || [];
+}
+
 module.exports = {
   crearMes,
   getServiceAccountEmail,
   listarArchivosSADrive,
+  listarArchivosEnCarpeta,
   limpiarSADrive,
 };

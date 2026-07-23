@@ -1,6 +1,8 @@
 const sheets = require('./googleSheets');
 const storage = require('./sqliteStorage');
 const config = require('../config/env');
+const driveManager = require('./driveManager');
+const mesesUtils = require('../config/meses');
 
 let syncing = false;
 
@@ -104,7 +106,54 @@ async function warmCache() {
   syncing = true;
   try {
     console.log('[CACHE] Cargando datos desde Google Sheets...');
-    const meses = storage.obtenerTodosMeses();
+    let meses = storage.obtenerTodosMeses();
+
+    // Si no hay meses en SQLite (primer inicio o BD reseteada), descubrirlos del Drive
+    if (meses.length === 0) {
+      console.log('[CACHE] Sin meses en SQLite — descubriendo desde Drive...');
+      try {
+        const archivos = await driveManager.listarArchivosSADrive();
+        const carpetas = archivos.filter(f =>
+          f.mimeType === 'application/vnd.google-apps.folder' &&
+          f.parents && f.parents.includes(config.googleDriveFolderId) &&
+          /^\d{2,4}_[A-Z]+$/.test(f.name)
+        );
+        console.log('[CACHE] Encontradas ' + carpetas.length + ' carpetas mensuales en Drive');
+        for (const carp of carpetas) {
+          const match = carp.name.match(/^(\d{2,4})_(.+)$/);
+          if (!match) continue;
+          let anio = parseInt(match[1], 10);
+          if (anio < 100) anio += 2000;
+          const mesNombre = match[2].toUpperCase();
+          const mesNum = mesesUtils.nombresMeses().findIndex(n => n === mesNombre) + 1;
+          if (mesNum <= 0) continue;
+          const codigo = mesesUtils.generarCodigo(anio, mesNum);
+
+          let hospSheetId = '', emergSheetId = '';
+          try {
+            const hijos = await driveManager.listarArchivosEnCarpeta(carp.id);
+            for (const h of hijos) {
+              if (h.mimeType !== 'application/vnd.google-apps.spreadsheet') continue;
+              const nameUp = h.name.toUpperCase();
+              if (nameUp.includes('HOSPITALIZACION') || nameUp.includes('HOSP')) hospSheetId = h.id;
+              else if (nameUp.includes('EMERGENCIA') || nameUp.includes('EMERG')) emergSheetId = h.id;
+            }
+          } catch (e) { /* ignore */ }
+
+          storage.guardarMes({
+            codigo, nombre: carp.name, anio, mes: mesNum,
+            carpetaId: carp.id,
+            hosp_sheet_id: hospSheetId || '',
+            emerg_sheet_id: emergSheetId || '',
+          });
+          console.log('[CACHE] Mes auto-descubierto: ' + codigo + ' ' + carp.name);
+        }
+        meses = storage.obtenerTodosMeses();
+      } catch (e) {
+        console.warn('[CACHE] Error descubriendo meses desde Drive:', e.message);
+      }
+    }
+
     let total = 0;
     for (const mes of meses) {
       for (const tipo of ['hospitalizacion', 'emergencia']) {
