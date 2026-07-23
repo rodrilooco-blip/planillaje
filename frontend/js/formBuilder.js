@@ -37,10 +37,8 @@ const FormBuilder = {
       { keywords: ['DG_S_5', 'DG_S - 5', 'DG. S - 5', 'DG_S_5'] },
       { keywords: ['CIE'] },
     ]},
-    { id: 'examen', titulo: 'Examen', campos: [
-      { keywords: ['EXAMEN'] },
-    ]},
-    { id: 'procedimiento', titulo: '4. Procedimientos / Insumos', campos: [] },
+    { id: 'examen', titulo: 'Examen', campos: [] },
+    { id: 'procedimiento', titulo: '4. Procedimientos / Insumos (1 fila por insumo)', campos: [] },
     { id: 'derivacion', titulo: '5. Derivaci\u00f3n', campos: [
       { keywords: ['CODIGO_DERIVACION'] },
       { keywords: ['SECUENCIAL', 'DERIVACION'] },
@@ -694,9 +692,9 @@ const FormBuilder = {
     const cantidadKey = campos.find(c => c.key.includes('CANTIDAD'))?.key || '';
 
     const colVisibility = [
-      { key: tipoExamenKey, label: 'Tipo Examen', type: 'catalogo', catalogo: 'tipoexamen' },
-      { key: codigoKey, label: 'C\u00f3digo', type: 'catalogo', catalogo: 'procedimientos,medicamentos' },
-      { key: nombreKey, label: 'Nombre', type: 'textarea' },
+      { key: tipoExamenKey, label: 'Tipo Examen', type: 'catalogo', catalogo: 'tipoexamen', targetDesc: codigoKey },
+      { key: codigoKey, label: 'C\u00f3digo', type: 'codigo-readonly' },
+      { key: nombreKey, label: 'Nombre', type: 'nombre-buscable', catalogo: 'procedimientos,medicamentos', targetCode: codigoKey },
       { key: cantidadKey, label: 'Cantidad', type: 'number' },
     ].filter(c => c.key);
 
@@ -736,24 +734,32 @@ const FormBuilder = {
     const colVisibility = this._colVisibility || [];
 
     const tdsHtml = colVisibility.map(col => {
-      if (col.type === 'catalogo') {
-        const rowIdx = tbody.children.length;
-        const id = `it-${col.key}-${rowIdx}`;
-        const placeholder = col.label === 'Tipo Examen' ? 'Tipo examen...' : 'C\u00f3digo...';
-        return `<td class="td-codigo"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${placeholder}" autocomplete="off"></div></td>`;
-      }
-      if (col.type === 'textarea') {
-        const rowIdx = tbody.children.length;
-        const id = `it-${col.key}-${rowIdx}`;
-        return `<td class="td-nombre"><textarea id="${id}" data-item-key="${col.key}" rows="1" placeholder="Descripci\u00f3n..." readonly></textarea></td>`;
-      }
-      if (col.type === 'number') {
-        const rowIdx = tbody.children.length;
-        const id = `it-${col.key}-${rowIdx}`;
-        return `<td><input type="number" id="${id}" data-item-key="${col.key}" step="0.01" value="0"></td>`;
-      }
       const rowIdx = tbody.children.length;
       const id = `it-${col.key}-${rowIdx}`;
+
+      if (col.type === 'codigo-readonly') {
+        return `<td class="td-codigo"><input type="text" id="${id}" data-item-key="${col.key}" placeholder="C\u00f3digo auto" readonly></td>`;
+      }
+
+      if (col.type === 'nombre-buscable') {
+        const invertAttr = col.targetCode ? ' data-invert="1"' : '';
+        const targetAttr = col.targetCode ? ` data-targetcode="${col.targetCode}"` : '';
+        return `<td class="td-nombre"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion"${targetAttr}${invertAttr} placeholder="Buscar descripci\u00f3n..." autocomplete="off"></div></td>`;
+      }
+
+      if (col.type === 'catalogo') {
+        const placeholder = col.label === 'Tipo Examen' ? 'Tipo examen...' : 'Buscar...';
+        return `<td class="td-codigo"><div class="input-wrapper"><input type="text" id="${id}" data-item-key="${col.key}" data-catalogo="${col.catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${placeholder}" autocomplete="off"></div></td>`;
+      }
+
+      if (col.type === 'textarea') {
+        return `<td class="td-nombre"><textarea id="${id}" data-item-key="${col.key}" rows="1" placeholder="Descripci\u00f3n..." readonly></textarea></td>`;
+      }
+
+      if (col.type === 'number') {
+        return `<td><input type="number" id="${id}" data-item-key="${col.key}" step="0.01" value="0"></td>`;
+      }
+
       return `<td><input type="text" id="${id}" data-item-key="${col.key}"></td>`;
     }).join('');
 
@@ -761,16 +767,10 @@ const FormBuilder = {
     tr.innerHTML = `<td class="td-num">${idx}</td>${tdsHtml}<td class="td-accion"><button type="button" class="btn-quitar-fila" title="Quitar fila">X</button></td>`;
     tbody.appendChild(tr);
 
-    const nombreKey = colVisibility.find(c => c.type === 'textarea')?.key;
     const catalogoInputs = tr.querySelectorAll('input[data-catalogo]');
     catalogoInputs.forEach(inp => {
       Autocomplete.configurar(inp, inp.dataset.catalogo, 'codigo', 'descripcion');
     });
-    const codigoField = colVisibility.find(c => c.label === 'C\u00f3digo');
-    if (codigoField) {
-      const codigoInput = tr.querySelector(`input[data-item-key="${codigoField.key}"]`);
-      if (codigoInput && nombreKey) codigoInput.dataset.targetdesc = nombreKey;
-    }
 
     tr.querySelector('.btn-quitar-fila')?.addEventListener('click', () => {
       tr.remove();

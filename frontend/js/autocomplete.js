@@ -217,16 +217,31 @@ const Autocomplete = {
   seleccionar(codigo, descripcion) {
     const input = this.currentInput;
     if (input) {
-      input.value = codigo;
-      input.dataset.descripcion = descripcion;
-      const targetName = input.dataset.targetdesc;
-      if (targetName) {
-        let target = document.querySelector(`[name="${targetName}"]`);
-        if (!target) {
+      const invertir = input.dataset.invert === '1';
+      if (invertir) {
+        input.value = descripcion;
+        input.dataset.descripcion = descripcion;
+        input.dataset.codigo = codigo;
+        const targetCodeKey = input.dataset.targetcode;
+        if (targetCodeKey) {
+          let target = null;
           const tr = input.closest('tr');
-          if (tr) target = tr.querySelector(`[data-item-key="${targetName}"]`);
+          if (tr) target = tr.querySelector(`input[data-item-key="${targetCodeKey}"]`);
+          if (!target) target = document.querySelector(`[name="${targetCodeKey}"]`);
+          if (target) target.value = codigo;
         }
-        if (target) target.value = descripcion;
+      } else {
+        input.value = codigo;
+        input.dataset.descripcion = descripcion;
+        const targetName = input.dataset.targetdesc;
+        if (targetName) {
+          let target = document.querySelector(`[name="${targetName}"]`);
+          if (!target) {
+            const tr = input.closest('tr');
+            if (tr) target = tr.querySelector(`[data-item-key="${targetName}"]`);
+          }
+          if (target) target.value = descripcion;
+        }
       }
       const evt = new Event('input', { bubbles: true });
       input.dispatchEvent(evt);
