@@ -29,15 +29,27 @@ const App = {
       this.meses = resp.meses || [];
       const select = document.getElementById('monthSelect');
       select.innerHTML = '<option value="">-- Seleccionar mes --</option>';
-      this.meses.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.codigo;
-        opt.textContent = m.nombre || m.codigo;
-        select.appendChild(opt);
-      });
+
       if (this.meses.length > 0) {
-        select.value = this.meses[this.meses.length - 1].codigo;
-        this.switchMes(select.value);
+        this.meses.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.codigo;
+          opt.textContent = m.nombre || m.codigo;
+          select.appendChild(opt);
+        });
+        // Preseleccionar el mas reciente (ultimo de la lista ordenada DESC)
+        const ultimo = this.meses[0].codigo;
+        select.value = ultimo;
+        this.switchMes(ultimo);
+      } else {
+        select.innerHTML += '<option value="" disabled>No hay meses creados</option>';
+        // Intentar obtener el mes actual desde el backend por si warmCache lo creo
+        try {
+          const actual = await API.getMesActual();
+          if (actual && actual.codigo) {
+            window.mesActual = actual.codigo;
+          }
+        } catch (e) { /* ignore */ }
       }
       select.addEventListener('change', () => this.switchMes(select.value));
     } catch (err) {

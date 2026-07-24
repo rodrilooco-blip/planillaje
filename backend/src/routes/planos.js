@@ -16,10 +16,16 @@ function getSpreadsheetId(tipo, codigo) {
   const t = tipo.toLowerCase();
   if (codigo) {
     const mes = storage.obtenerMes(codigo);
-    if (mes) return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+    if (mes) {
+      const id = t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+      if (id) return id;
+    }
   }
   const mes = storage.obtenerMesMasReciente();
-  if (mes) return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+  if (mes) {
+    const id = t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
+    if (id) return id;
+  }
   if (t === 'hospitalizacion') return config.sheets.hospitalizacion;
   if (t === 'emergencia') return config.sheets.emergencia;
   return null;

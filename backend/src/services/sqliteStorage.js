@@ -235,7 +235,7 @@ function guardarMes(mes) {
   const d = getDb();
   d.prepare(`INSERT OR REPLACE INTO meses (codigo, nombre, anio, mes, carpeta_id, hosp_sheet_id, emerg_sheet_id, creado_en)
              VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`)
-    .run(mes.codigo, mes.nombre, mes.anio, mes.mes, mes.carpetaId, mes.hosp_sheet_id, mes.emerg_sheet_id);
+    .run(mes.codigo, mes.nombre, mes.anio, mes.mes, mes.carpetaId || null, mes.hosp_sheet_id || null, mes.emerg_sheet_id || null);
 }
 
 function obtenerTodosMeses() {
