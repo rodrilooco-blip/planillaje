@@ -319,8 +319,8 @@ async function crearMes(anio, mesNum) {
       console.warn('[DriveManager] Error con spreadsheet ' + tipo + ': ' + e.message);
     }
 
-    if (tipo === 'hospitalizacion') result.hosp_sheet_id = sheetId || '';
-    else result.emerg_sheet_id = sheetId || '';
+    if (tipo === 'hospitalizacion') result.hosp_sheet_id = sheetId || null;
+    else result.emerg_sheet_id = sheetId || null;
 
     storage.guardarMes(result);
   }

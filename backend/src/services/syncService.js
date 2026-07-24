@@ -143,8 +143,8 @@ async function warmCache() {
           storage.guardarMes({
             codigo, nombre: carp.name, anio, mes: mesNum,
             carpetaId: carp.id,
-            hosp_sheet_id: hospSheetId || '',
-            emerg_sheet_id: emergSheetId || '',
+            hosp_sheet_id: hospSheetId || null,
+            emerg_sheet_id: emergSheetId || null,
           });
           console.log('[CACHE] Mes auto-descubierto: ' + codigo + ' ' + carp.name);
         }
