@@ -138,23 +138,20 @@ async function getSheetId(sheetId, hojaNombre) {
 }
 
 async function getUltimoNumeroPaciente(sheetId, hoja) {
-  const datos = await leerSheet(sheetId, `${hoja}!A:A`);
+  const datos = await leerSheet(sheetId, `${hoja}!A:Z`);
   if (datos.length <= 1) return 0;
+  const encabezados = datos[0];
+  const idx = encabezados.findIndex(h => {
+    const k = (h || '').toUpperCase();
+    return k.includes('NO. PACIENTE') || k.includes('NO PACIENTE') || k.startsWith('NO.');
+  });
+  if (idx === -1) return 0;
   let max = 0;
   for (let i = 1; i < datos.length; i++) {
-    const n = parseInt(datos[i][0], 10);
+    const n = parseInt(datos[i][idx], 10);
     if (!isNaN(n) && n > max) max = n;
   }
   return max;
-}
-
-async function getColumnasSheet(sheetId, hoja) {
-  const encabezados = await leerEncabezados(sheetId, hoja);
-  return encabezados.map((nombre, i) => ({
-    index: i,
-    nombre: nombre || '',
-    tipo: 'texto',
-  }));
 }
 
 async function leerFila(sheetId, hoja, numeroFila) {
@@ -166,15 +163,11 @@ module.exports = {
   getSheetsClient,
   leerSheet,
   leerEncabezados,
-  agregarFila,
-  agregarFilas,
   appendRow,
   appendRows,
   actualizarFila,
   eliminarFila,
   getSheetId,
-  leerRango: leerSheet,
   getUltimoNumeroPaciente,
-  getColumnasSheet,
   leerFila,
 };

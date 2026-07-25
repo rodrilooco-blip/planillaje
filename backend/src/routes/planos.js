@@ -12,6 +12,8 @@ const crypto = require('crypto');
 
 const router = Router();
 
+const normalizarKey = storage.normalizarKey;
+
 function getSpreadsheetId(tipo, codigo) {
   const t = tipo.toLowerCase();
   if (codigo) {
@@ -37,23 +39,10 @@ function validarHoja(tipo, hoja) {
   return lista.includes(hoja);
 }
 
-function normalizarKey(h) {
-  let n = (h || '');
-  n = n.split('(')[0];
-  n = n.split('.-')[0];
-  n = n.split('Pegar')[0];
-  n = n.split('Siempre')[0];
-  n = n.split('/')[0];
-  n = n.replace(/\.$/, '').trim();
-  n = n.replace(/^NO\./i, 'N\u00famero');
-  n = n.trim().toUpperCase().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
-  return n;
-}
-
 function mapearFilaAObjeto(encabezados, fila) {
   const obj = {};
   encabezados.forEach((h, i) => {
-    obj[normalizarKey(h)] = fila[i] || '';
+    obj[storage.normalizarKey(h)] = fila[i] || '';
   });
   return obj;
 }
@@ -112,11 +101,8 @@ router.get('/:tipo/:hoja/columnas', lecturas, async (req, res) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
 
   try {
-    let encabezados = storage.obtenerEncabezados(tipo, hoja);
-    if (!encabezados) {
-      encabezados = await sheets.leerEncabezados(sheetId, hoja);
-      if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
-    }
+    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
+    if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
     const columnas = encabezados.map((nombre, i) => ({ index: i, nombre: nombre || '', tipo: 'texto' }));
     const extras = reglas.obtenerColumnasAdicionales(hoja);
     res.json({ columnas, extras });
@@ -247,37 +233,17 @@ router.get('/:tipo/:hoja', lecturas, async (req, res) => {
   const { tipo, hoja } = req.params;
   const { mes } = req.query;
   const sheetId = getSpreadsheetId(tipo, mes);
-  if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
+  if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
-    // Intentar leer desde SQLite primero (instantáneo)
-    let encabezados = storage.obtenerEncabezados(tipo, hoja);
-    const registrosLocal = storage.obtenerRegistros(tipo, hoja, 100000);
-
-    if (encabezados && registrosLocal.length > 0) {
-      return res.json({
-        encabezados,
-        registros: registrosLocal.map(r => ({
-          fila: r.fila,
-          datos: r.datos,
-          batchId: r.batchId,
-          synced: r.synced,
-        })),
-        total: registrosLocal.length,
-        source: 'sqlite',
-      });
-    }
-
-    // Fallback a Google Sheets
     const datos = await sheets.leerSheet(sheetId, `${hoja}!A:Z`);
     if (datos.length === 0) return res.json({ encabezados: [], registros: [] });
 
-    encabezados = datos[0];
+    const encabezados = datos[0];
     storage.guardarEncabezados(tipo, hoja, encabezados);
 
     const registros = datos.slice(1).map((fila, idx) => {
       const obj = mapearFilaAObjeto(encabezados, fila);
-      storage.upsertPorFilaGs(tipo, hoja, idx + 2, obj);
       return { fila: idx + 2, datos: obj };
     });
 
@@ -319,26 +285,18 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
 
     const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
 
-    // Leer encabezados
-    let encabezados = storage.obtenerEncabezados(tipo, hoja);
-    if (!encabezados) {
-      encabezados = await sheets.leerEncabezados(sheetId, hoja);
-      storage.guardarEncabezados(tipo, hoja, encabezados);
-    }
+    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
+    storage.guardarEncabezados(tipo, hoja, encabezados);
 
-    // Mapear objeto a valores ordenados por encabezados
     const valores = encabezados.map(h => {
       const key = normalizarKey(h);
       return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
     });
 
-    // 1) Guardar en Google Sheets (primario)
     const rowNum = await sheets.appendRow(sheetId, hoja, valores);
-
-    // 2) Guardar en SQLite (cache) con fila_gs y synced=1
     const guardado = storage.guardarRegistroConFila(tipo, hoja, dataCompleta, null, rowNum);
 
-    res.json({ exito: true, mensaje: 'Registro guardado', id: guardado.id, fila_gs: rowNum });
+    res.json({ exito: true, mensaje: 'Registro guardado', fila_gs: rowNum });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -348,32 +306,22 @@ router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   const { tipo, hoja, fila } = req.params;
   const { mes } = req.query;
   const sheetId = getSpreadsheetId(tipo, mes);
-  if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
+  if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
-    const id = parseInt(fila, 10);
-    const existente = storage.obtenerRegistro(tipo, hoja, id);
+    const numeroFila = parseInt(fila, 10);
     const dataCompleta = reglas.aplicarReglasFijas(hoja, { ...req.body });
 
-    // 1) Actualizar en Google Sheets (primario)
-    if (existente && existente.fila) {
-      let encabezados = storage.obtenerEncabezados(tipo, hoja);
-      if (!encabezados) {
-        encabezados = await sheets.leerEncabezados(sheetId, hoja);
-        storage.guardarEncabezados(tipo, hoja, encabezados);
-      }
-      const valores = encabezados.map(h => {
-        const key = normalizarKey(h);
-        return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
-      });
-      await sheets.actualizarFila(sheetId, hoja, existente.fila, valores);
-    }
+    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
+    storage.guardarEncabezados(tipo, hoja, encabezados);
+    const valores = encabezados.map(h => {
+      const key = normalizarKey(h);
+      return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
+    });
+    await sheets.actualizarFila(sheetId, hoja, numeroFila, valores);
 
-    // 2) Actualizar SQLite (cache)
-    storage.actualizarRegistro(tipo, hoja, id, dataCompleta);
-    if (existente && existente.fila) {
-      storage.marcarSynced(id, existente.fila);
-    }
+    storage.actualizarRegistro(tipo, hoja, numeroFila, dataCompleta);
+    storage.marcarSyncedRow(tipo, hoja, numeroFila);
 
     res.json({ exito: true, mensaje: 'Registro actualizado' });
   } catch (err) {
@@ -385,20 +333,12 @@ router.delete('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
   const { tipo, hoja, fila } = req.params;
   const { mes } = req.query;
   const sheetId = getSpreadsheetId(tipo, mes);
-  if (!sheetId) return res.status(400).json({ error: 'Tipo inv\u00e1lido' });
+  if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
-    const id = parseInt(fila, 10);
-    const existente = storage.obtenerRegistro(tipo, hoja, id);
-
-    // 1) Eliminar de Google Sheets (primario)
-    if (existente && existente.fila) {
-      await sheets.eliminarFila(sheetId, hoja, existente.fila);
-    }
-
-    // 2) Eliminar de SQLite (cache)
-    storage.eliminarRegistro(tipo, hoja, id);
-
+    const numeroFila = parseInt(fila, 10);
+    await sheets.eliminarFila(sheetId, hoja, numeroFila);
+    storage.eliminarRegistroRow(tipo, hoja, numeroFila);
     res.json({ exito: true, mensaje: 'Registro eliminado' });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -415,10 +355,6 @@ router.get('/:tipo/:hoja/:fila', lecturas, async (req, res, next) => {
   if (!sheetId) return res.status(400).json({ error: 'Tipo inválido' });
 
   try {
-    const id = parseInt(fila, 10);
-    const reg = storage.obtenerRegistro(tipo, hoja, id);
-    if (reg) return res.json({ fila: id, datos: reg.datos });
-
     const encabezados = await sheets.leerEncabezados(sheetId, hoja);
     const filaDatos = await sheets.leerFila(sheetId, hoja, parseInt(fila, 10));
     const obj = mapearFilaAObjeto(encabezados, filaDatos);
@@ -448,13 +384,10 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
     const errores = reglas.validarData(datosPaciente);
     if (errores.length > 0) return res.status(400).json({ error: 'Datos inv\u00e1lidos', detalles: errores });
 
-    let encabezados = storage.obtenerEncabezados(tipo, hoja);
-    if (!encabezados) {
-      encabezados = await sheets.leerEncabezados(sheetId, hoja);
-      storage.guardarEncabezados(tipo, hoja, encabezados);
-    }
+    const encabezados = await sheets.leerEncabezados(sheetId, hoja);
+    storage.guardarEncabezados(tipo, hoja, encabezados);
 
-    const ultimoNumero = storage.siguienteNumeroPaciente(tipo, hoja);
+    const ultimoNumero = await sheets.getUltimoNumeroPaciente(sheetId, hoja);
     const batchId = crypto.randomUUID();
 
     const filasParaGuardar = items.map((item, idx) => {
@@ -476,7 +409,6 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
       });
     }
 
-    // 1) Guardar en Google Sheets (primario) — mapear cada fila a valores ordenados
     const filasValores = filasParaGuardar.map(d =>
       encabezados.map(h => {
         const key = normalizarKey(h);
@@ -485,14 +417,13 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
     );
     const filasGs = await sheets.appendRows(sheetId, hoja, filasValores);
 
-    // 2) Guardar en SQLite (cache) con fila_gs y synced=1
-    const ids = storage.guardarBatchConFilas(tipo, hoja, filasParaGuardar, batchId, filasGs);
+    storage.guardarBatchConFilas(tipo, hoja, filasParaGuardar, batchId, filasGs);
 
     res.json({
       exito: true,
       mensaje: `${items.length} registro(s) guardado(s)`,
       batchId,
-      ids,
+      filas_gs: filasGs,
       proximoNumero: ultimoNumero + items.length + 1,
     });
   } catch (err) {
@@ -507,34 +438,24 @@ router.get('/:tipo/:hoja/exportar-excel', lecturas, async (req, res) => {
   if (!validarHoja(tipo, hoja)) return res.status(400).json({ error: `Hoja "${hoja}" no v\u00e1lida` });
 
   try {
-    let encabezados = storage.obtenerEncabezados(tipo, hoja);
-    if (!encabezados) {
-      const sheetId = getSpreadsheetId(tipo, mes);
-      if (sheetId) {
-        encabezados = await sheets.leerEncabezados(sheetId, hoja);
-        if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
-      }
-    }
+    const sheetId = getSpreadsheetId(tipo, mes);
+    if (!sheetId) return res.status(400).json({ error: 'Mes no configurado' });
 
-    const registros = storage.obtenerRegistros(tipo, hoja, 100000);
-    const datos = registros.map(r => r.datos);
+    const datosCrudos = await sheets.leerSheet(sheetId, `${hoja}!A:ZZZ`);
+    if (datosCrudos.length === 0) return res.status(404).json({ error: 'Hoja sin datos' });
+
+    const encabezados = datosCrudos[0];
+    if (encabezados && encabezados.length) storage.guardarEncabezados(tipo, hoja, encabezados);
+
+    const filas = datosCrudos.slice(1);
+    const registros = filas.map(f => {
+      const obj = {};
+      encabezados.forEach((h, i) => { obj[normalizarKey(h)] = f[i] || ''; });
+      return obj;
+    });
 
     const wb = XLSX.utils.book_new();
-    let ws;
-    if (encabezados && encabezados.length) {
-      const rows = [encabezados.map(h => normalizarKey(h))];
-      for (const d of datos) {
-        const row = rows[0].map(k => {
-          if (d[k]) return d[k];
-          const mk = Object.keys(d).find(dk => dk.includes(k) || k.includes(dk));
-          return mk ? d[mk] : '';
-        });
-        rows.push(row);
-      }
-      ws = XLSX.utils.aoa_to_sheet(rows);
-    } else {
-      ws = XLSX.utils.json_to_sheet(datos);
-    }
+    const ws = XLSX.utils.json_to_sheet(registros);
     XLSX.utils.book_append_sheet(wb, ws, hoja.substring(0, 30));
 
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });

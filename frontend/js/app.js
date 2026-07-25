@@ -23,6 +23,13 @@ const App = {
     }
   },
 
+  generarCodigoMesActual() {
+    const now = new Date();
+    const anio = now.getFullYear();
+    const mes = String(now.getMonth() + 1).padStart(2, '0');
+    return `${anio}_${mes}`;
+  },
+
   async loadMeses() {
     try {
       const resp = await API.getMeses();
@@ -37,10 +44,12 @@ const App = {
           opt.textContent = m.nombre || m.codigo;
           select.appendChild(opt);
         });
-        // Preseleccionar el mas reciente (ultimo de la lista ordenada DESC)
-        const ultimo = this.meses[0].codigo;
-        select.value = ultimo;
-        this.switchMes(ultimo);
+        // Preseleccionar el mes actual (ej. 26_JULIO si estamos en julio), o el mas reciente como fallback
+        const codigoActual = this.generarCodigoMesActual();
+        const mesActual = this.meses.find(m => m.codigo === codigoActual);
+        const preseleccionado = mesActual ? mesActual.codigo : this.meses[0].codigo;
+        select.value = preseleccionado;
+        this.switchMes(preseleccionado);
       } else {
         select.innerHTML += '<option value="" disabled>No hay meses creados</option>';
         // Intentar obtener el mes actual desde el backend por si warmCache lo creo
@@ -64,6 +73,12 @@ const App = {
     this.actualizarIndicadorDrive(mes);
     if (FormBuilder.currentHoja) {
       this.onSelectHoja(FormBuilder.currentTipo, FormBuilder.currentHoja);
+    } else {
+      // Refrescar tabla de recientes si esta visible, con el nuevo mes
+      const tableContainer = document.getElementById('recentTableContainer');
+      if (tableContainer && tableContainer.style.display !== 'none' && RecentTable.currentHoja) {
+        RecentTable.cargar(RecentTable.currentTipo, RecentTable.currentHoja);
+      }
     }
   },
 
@@ -174,8 +189,13 @@ const App = {
     FormBuilder.editFila = null;
     FormBuilder.currentTipo = tipo;
     FormBuilder.currentHoja = hoja;
-    await FormBuilder.build(tipo, hoja);
-    // Actualizar info de sheet activo
+    try {
+      await FormBuilder.build(tipo, hoja);
+    } catch (e) {
+      console.error('Error building form:', e);
+    }
+    // Refrescar tabla incluso si build fallo
+    RecentTable.cargar(tipo, hoja);
     const mes = this.meses.find(m => m.codigo === window.mesActual);
     this.actualizarSheetActivo(mes);
   },

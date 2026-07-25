@@ -65,39 +65,56 @@ async function pullHoja(tipo, hoja) {
   try {
     const sheetId = getSpreadsheetId(tipo);
     if (!sheetId) return 0;
-
-    const datos = await sheets.leerSheet(sheetId, `${hoja}!A:ZZZ`);
-    if (datos.length <= 1) return 0;
-
-    const encabezados = datos[0];
-    storage.guardarEncabezados(tipo, hoja, encabezados);
-
-    let count = 0;
-    for (let i = 1; i < datos.length; i++) {
-      const fila = datos[i];
-      const obj = {};
-      encabezados.forEach((h, idx) => {
-        obj[storage.normalizarKey(h)] = fila[idx] || '';
-      });
-      storage.upsertPorFilaGs(tipo, hoja, i + 1, obj);
-      count++;
-    }
-    return count;
+    return await pullHojaPorSheetId(tipo, hoja, sheetId);
   } catch (err) {
     console.error(`[SYNC] Error pull ${tipo}/${hoja}:`, err.message);
     return 0;
   }
 }
 
+async function pullHojaPorSheetId(tipo, hoja, sheetId) {
+  const datos = await sheets.leerSheet(sheetId, `${hoja}!A:ZZZ`);
+  if (datos.length <= 1) return 0;
+
+  const encabezados = datos[0];
+  storage.guardarEncabezados(tipo, hoja, encabezados);
+
+  let count = 0;
+  for (let i = 1; i < datos.length; i++) {
+    const fila = datos[i];
+    const obj = {};
+    encabezados.forEach((h, idx) => {
+      obj[storage.normalizarKey(h)] = fila[idx] || '';
+    });
+    storage.upsertPorFilaGs(tipo, hoja, i + 1, obj);
+    count++;
+  }
+  return count;
+}
+
 async function pullTodo() {
   let total = 0;
-  for (const hoja of config.hojas.emergencia) {
-    total += await pullHoja('emergencia', hoja);
-  }
-  for (const hoja of config.hojas.hospitalizacion) {
-    total += await pullHoja('hospitalizacion', hoja);
+  const meses = storage.obtenerTodosMeses();
+  if (meses.length === 0) return 0;
+  for (const mes of meses) {
+    for (const tipo of ['emergencia', 'hospitalizacion']) {
+      for (const hoja of config.hojas[tipo]) {
+        total += await pullHojaMes(tipo, hoja, mes.codigo);
+      }
+    }
   }
   return total;
+}
+
+async function pullHojaMes(tipo, hoja, codigoMes) {
+  try {
+    const sheetId = getSpreadsheetId(tipo, codigoMes);
+    if (!sheetId) return 0;
+    return await pullHojaPorSheetId(tipo, hoja, sheetId);
+  } catch (err) {
+    console.error(`[SYNC] Error pull ${tipo}/${hoja} (mes ${codigoMes}):`, err.message);
+    return 0;
+  }
 }
 
 // Warm cache al inicio: carga todos los datos de Google Sheets a SQLite
@@ -193,13 +210,6 @@ function iniciarCacheRefresh(intervaloMs = 300000) {
   console.log(`[CACHE] Refresco automático cada ${intervaloMs / 1000}s`);
 }
 
-function detenerCacheRefresh() {
-  if (intervalId) {
-    clearInterval(intervalId);
-    intervalId = null;
-  }
-}
-
 function contarPendientes() {
   return storage.contarPendientesSync();
 }
@@ -210,6 +220,5 @@ module.exports = {
   pullTodo,
   warmCache,
   iniciarCacheRefresh,
-  detenerCacheRefresh,
   contarPendientes,
 };

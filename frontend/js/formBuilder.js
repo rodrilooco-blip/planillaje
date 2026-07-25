@@ -245,7 +245,6 @@ const FormBuilder = {
     Reglas.aplicarValoresFijos(this.currentHoja);
     Reglas.setupEventListeners();
     this.setupSubmitHandler(editFila);
-    RecentTable.cargar(this.currentTipo, this.currentHoja);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
     if (this.currentTipo === 'hospitalizacion' && !editFila) {
       this.agregarBuscadorPacientes();
@@ -321,6 +320,22 @@ const FormBuilder = {
           '<option value="6">6 = Accidente de Tránsito</option>',
           '<option value="7">7 = Enfermedad Catastrófica</option>',
         ].join('');
+      } else if (nSel.includes('MOTIVO EGRESO') || nSel.includes('MOTIVO_EGRESO')) {
+        optionsHtml = [
+          '<option value="">Seleccione...</option>',
+          '<option value="1">1 = Alta Médica</option>',
+          '<option value="2">2 = Fallecimiento</option>',
+          '<option value="3">3 = Traslado o Transferencia</option>',
+          '<option value="4">4 = Alta Voluntaria</option>',
+          '<option value="5">5 = Larga estancia o no hay egreso al cierre del mes</option>',
+        ].join('');
+      } else if (nSel.includes('TIPO PRESTACION') || nSel.includes('TIPO_PRESTACION')) {
+        optionsHtml = [
+          '<option value="">Seleccione...</option>',
+          '<option value="P">P = Procedimiento Tarifario</option>',
+          '<option value="M">M = Medicamento</option>',
+          '<option value="I">I = Insumo</option>',
+        ].join('');
       } else {
         optionsHtml = '<option value="">Seleccione dependencia...</option>';
       }
@@ -374,7 +389,7 @@ const FormBuilder = {
       'CODIGO_DE_DERIVACION', 'TIEMPO_ANESTESIA',
       'PORCENTAJE_IVA', 'VALOR_IVA_UNITARIO',
       'DISCAPACIDAD_CERTIFICADA', 'GASTOS_DE_GESTION',
-      'COBERTURA_COMPARTIDA', 'TIPO_DE_COBERTURA',
+      'COBERTURA_COMPARTIDA',
     ];
     return ocultos.some(o => k.includes(o));
   },
@@ -393,7 +408,9 @@ const FormBuilder = {
     const esVehiculo = (n.includes('VEHICULO') || n.includes('VEHÍCULO')) && n.includes('TIPO');
     return n.includes('DEPENDENCIA') || n.includes('PARENTESCO') ||
            n.includes('CANTON') || n.includes('CANTÓN') || esVehiculo ||
-           n === 'SEXO' || n.includes('CONTINGENCIA');
+           n === 'SEXO' || n.includes('CONTINGENCIA') ||
+           n.includes('MOTIVO EGRESO') || n.includes('MOTIVO_EGRESO') ||
+           n.includes('TIPO PRESTACION') || n.includes('TIPO_PRESTACION');
   },
 
   async cargarSelectDependencia() {
@@ -515,6 +532,7 @@ const FormBuilder = {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     if (n.includes('MARCA FINAL') || n.includes('UNIDAD OPERATIVA')) return true;
     if (n.includes('PROVINCIA') || n.includes('UNICODIGO') || n.includes('PAGINA') || n.includes('PÁGINA') || n.includes('ARCHIVO')) return true;
+    if (n.includes('TIPO COBERTURA') || n.includes('TIPO_COBERTURA')) return true;
     return false;
   },
 
@@ -562,6 +580,7 @@ const FormBuilder = {
     if (n.includes('UNICODIGO')) return '471';
     if (n.includes('PAGINA') || n.includes('PÁGINA')) return '1';
     if (n.includes('ARCHIVO')) return 'HCU_008_';
+    if (n.includes('TIPO COBERTURA') || n.includes('TIPO_COBERTURA')) return 'SPPAT';
     return '';
   },
 

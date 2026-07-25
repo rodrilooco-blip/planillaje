@@ -83,35 +83,12 @@ function obtenerEncabezados(tipo, hoja) {
   try { return JSON.parse(row.encabezados); } catch { return null; }
 }
 
-function guardarRegistro(tipo, hoja, datos, batchId = null) {
-  const d = getDb();
-  const info = d.prepare(`INSERT INTO registros (tipo, hoja, batch_id, datos, synced)
-                          VALUES (?, ?, ?, ?, 0)`)
-    .run(tipo, hoja, batchId, JSON.stringify(datos));
-  return { id: info.lastInsertRowid, batchId };
-}
-
 function guardarRegistroConFila(tipo, hoja, datos, batchId = null, filaGs = null) {
   const d = getDb();
   const info = d.prepare(`INSERT INTO registros (tipo, hoja, batch_id, fila_gs, datos, synced)
                           VALUES (?, ?, ?, ?, ?, 1)`)
     .run(tipo, hoja, batchId, filaGs, JSON.stringify(datos));
   return { id: info.lastInsertRowid, batchId, filaGs };
-}
-
-function guardarBatch(tipo, hoja, filasDatos, batchId = null) {
-  const d = getDb();
-  const tx = d.transaction((filas) => {
-    const ids = [];
-    for (const datos of filas) {
-      const info = d.prepare(`INSERT INTO registros (tipo, hoja, batch_id, datos, synced)
-                              VALUES (?, ?, ?, ?, 0)`)
-        .run(tipo, hoja, batchId, JSON.stringify(datos));
-      ids.push(info.lastInsertRowid);
-    }
-    return ids;
-  });
-  return tx(filasDatos);
 }
 
 function guardarBatchConFilas(tipo, hoja, filasDatos, batchId = null, filasGs = []) {
@@ -147,31 +124,19 @@ function obtenerRegistros(tipo, hoja, limite = 50) {
   }));
 }
 
-function obtenerRegistro(tipo, hoja, id) {
+function actualizarRegistro(tipo, hoja, filaGs, datos) {
   const d = getDb();
-  const r = d.prepare('SELECT id, batch_id, fila_gs, datos, synced FROM registros WHERE tipo=? AND hoja=? AND id=?')
-    .get(tipo, hoja, id);
-  if (!r) return null;
-  return {
-    id: r.id,
-    fila: r.fila_gs || r.id,
-    batchId: r.batch_id,
-    datos: JSON.parse(r.datos),
-    synced: r.synced,
-  };
+  d.prepare(`UPDATE registros SET datos=?, actualizado_en=datetime('now'), synced=1, fila_gs=? WHERE tipo=? AND hoja=? AND fila_gs=?`)
+    .run(JSON.stringify(datos), filaGs, tipo, hoja, filaGs);
 }
 
-function actualizarRegistro(tipo, hoja, id, datos) {
+function eliminarRegistroRow(tipo, hoja, filaGs) {
   const d = getDb();
-  d.prepare(`UPDATE registros SET datos=?, actualizado_en=datetime('now'), synced=0 WHERE tipo=? AND hoja=? AND id=?`)
-    .run(JSON.stringify(datos), tipo, hoja, id);
-  return { id };
+  d.prepare('DELETE FROM registros WHERE tipo=? AND hoja=? AND fila_gs=?').run(tipo, hoja, filaGs);
 }
 
-function eliminarRegistro(tipo, hoja, id) {
-  const d = getDb();
-  d.prepare('DELETE FROM registros WHERE tipo=? AND hoja=? AND id=?').run(tipo, hoja, id);
-  return { id };
+function eliminarRegistro(tipo, hoja, filaGs) {
+  eliminarRegistroRow(tipo, hoja, filaGs);
 }
 
 function obtenerPendientesSync(limite = 100) {
@@ -191,6 +156,11 @@ function marcarSynced(id, filaGs) {
   d.prepare('UPDATE registros SET synced=1, fila_gs=? WHERE id=?').run(filaGs || null, id);
 }
 
+function marcarSyncedRow(tipo, hoja, filaGs) {
+  const d = getDb();
+  d.prepare('UPDATE registros SET synced=1 WHERE tipo=? AND hoja=? AND fila_gs=?').run(tipo, hoja, filaGs);
+}
+
 function upsertPorFilaGs(tipo, hoja, filaGs, datos) {
   const d = getDb();
   const exist = d.prepare('SELECT id FROM registros WHERE tipo=? AND hoja=? AND fila_gs=?').get(tipo, hoja, filaGs);
@@ -203,31 +173,6 @@ function upsertPorFilaGs(tipo, hoja, filaGs, datos) {
                           VALUES (?, ?, ?, ?, 1)`)
     .run(tipo, hoja, filaGs, JSON.stringify(datos));
   return info.lastInsertRowid;
-}
-
-function contarRegistros(tipo, hoja) {
-  const d = getDb();
-  const r = d.prepare('SELECT COUNT(*) as total FROM registros WHERE tipo=? AND hoja=?').get(tipo, hoja);
-  return r ? r.total : 0;
-}
-
-function siguienteNumeroPaciente(tipo, hoja) {
-  const d = getDb();
-  const rows = d.prepare(`SELECT datos FROM registros WHERE tipo=? AND hoja=?`).all(tipo, hoja);
-  let max = 0;
-  for (const r of rows) {
-    try {
-      const datos = JSON.parse(r.datos);
-      const keys = Object.keys(datos);
-      for (const k of keys) {
-        if (k.includes('NO_PACIENTE') || k.includes('NUMERO_PACIENTE') || k === 'NO') {
-          const n = parseInt(datos[k], 10);
-          if (!isNaN(n) && n > max) max = n;
-        }
-      }
-    } catch {}
-  }
-  return max;
 }
 
 // ====== GESTI�N DE MESES ======
@@ -268,28 +213,23 @@ function eliminarMes(codigo) {
 }
 
 module.exports = {
-  getDb,
   normalizarKey,
   guardarEncabezados,
   obtenerEncabezados,
-  guardarRegistro,
   guardarRegistroConFila,
-  guardarBatch,
   guardarBatchConFilas,
   obtenerRegistros,
-  obtenerRegistro,
   actualizarRegistro,
   eliminarRegistro,
+  eliminarRegistroRow,
   obtenerPendientesSync,
   marcarSynced,
+  marcarSyncedRow,
   upsertPorFilaGs,
-  contarRegistros,
-  siguienteNumeroPaciente,
   contarPendientesSync,
   guardarMes,
   obtenerTodosMeses,
   obtenerMesMasReciente,
   obtenerMes,
-  obtenerMesAnterior,
   eliminarMes,
 };
