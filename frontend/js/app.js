@@ -60,7 +60,8 @@ const App = {
           }
         } catch (e) { /* ignore */ }
       }
-      select.addEventListener('change', () => this.switchMes(select.value));
+      // Reemplazar el manejador evita acumular eventos cada vez que se recarga la lista.
+      select.onchange = () => this.switchMes(select.value);
     } catch (err) {
       console.error('Error cargando meses:', err);
     }
@@ -146,6 +147,8 @@ const App = {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al crear mes: ' + err.message);
       const btn = document.getElementById('btnNuevoMes');
       if (btn) { btn.disabled = false; btn.textContent = '+'; }
+    }
+  },
 
   async checkConnection() {
     try {
