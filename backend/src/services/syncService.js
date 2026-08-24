@@ -117,64 +117,73 @@ async function pullHojaMes(tipo, hoja, codigoMes) {
   }
 }
 
+// Descubre meses existentes en Drive y los upsert ea SQLite.
+// Siempre corre: detecta meses nuevos sin borrar los ya conocidos.
+async function descubrirMesesDrive() {
+  const archivos = await driveManager.listarArchivosSADrive();
+  const carpetas = archivos.filter(f =>
+    f.mimeType === 'application/vnd.google-apps.folder' &&
+    f.parents && f.parents.includes(config.googleDriveFolderId)
+  );
+  console.log('[DISCOVER] Encontradas ' + carpetas.length + ' carpetas en Drive');
+  const nombresMeses = mesesUtils.nombresMeses();
+  let descubiertos = 0;
+  for (const carp of carpetas) {
+    const normalizado = carp.name.trim().toUpperCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const match = normalizado.match(/^(\d{2,4})[_\-\s]+([A-Z]+)$/);
+    if (!match) continue;
+    let anio = parseInt(match[1], 10);
+    if (anio < 100) anio += 2000;
+    const mesNombre = match[2];
+    const mesNum = nombresMeses.findIndex(n => n.toUpperCase() === mesNombre) + 1;
+    if (mesNum <= 0) {
+      console.log('[DISCOVER] Carpeta ignorada (mes no reconocido): ' + carp.name);
+      continue;
+    }
+    const codigo = mesesUtils.generarCodigo(anio, mesNum);
+
+    let hospSheetId = '', emergSheetId = '';
+    try {
+      const hijos = await driveManager.listarArchivosEnCarpeta(carp.id);
+      for (const h of hijos) {
+        if (h.mimeType !== 'application/vnd.google-apps.spreadsheet') continue;
+        const nameUp = h.name.toUpperCase();
+        if (nameUp.includes('HOSPITALIZACION') || nameUp.includes('HOSP')) hospSheetId = h.id;
+        else if (nameUp.includes('EMERGENCIA') || nameUp.includes('EMERG')) emergSheetId = h.id;
+      }
+    } catch (e) { /* ignore */ }
+
+    const existente = storage.obtenerMes(codigo);
+    storage.guardarMes({
+      codigo, nombre: carp.name, anio, mes: mesNum,
+      carpetaId: carp.id,
+      hosp_sheet_id: hospSheetId || (existente && existente.hosp_sheet_id) || null,
+      emerg_sheet_id: emergSheetId || (existente && existente.emerg_sheet_id) || null,
+    });
+    console.log('[DISCOVER] Mes registrado: ' + codigo + ' ' + carp.name +
+      ' hosp=' + (hospSheetId || (existente && existente.hosp_sheet_id) || 'N/A') +
+      ' emerg=' + (emergSheetId || (existente && existente.emerg_sheet_id) || 'N/A'));
+    descubiertos++;
+  }
+  return descubiertos;
+}
+
 // Warm cache al inicio: carga todos los datos de Google Sheets a SQLite
 async function warmCache() {
   if (syncing) return;
   syncing = true;
   try {
     console.log('[CACHE] Cargando datos desde Google Sheets...');
-    let meses = storage.obtenerTodosMeses();
 
-    // Siempre intentar descubrir meses nuevos en Drive y agregarlos si no existen
-    console.log('[CACHE] Descubriendo meses desde Drive...');
+    // Siempre redescubrir meses desde Drive (detecta los creados manualmente)
     try {
-      const archivos = await driveManager.listarArchivosSADrive();
-      const carpetas = archivos.filter(f =>
-        f.mimeType === 'application/vnd.google-apps.folder' &&
-        f.parents && f.parents.includes(config.googleDriveFolderId) &&
-        /^\d{2,4}_[A-Z]+$/.test(f.name)
-      );
-      console.log('[CACHE] Encontradas ' + carpetas.length + ' carpetas mensuales en Drive');
-      for (const carp of carpetas) {
-        const match = carp.name.match(/^(\d{2,4})_(.+)$/);
-        if (!match) continue;
-        let anio = parseInt(match[1], 10);
-        if (anio < 100) anio += 2000;
-        const mesNombre = match[2].toUpperCase();
-        const mesNum = mesesUtils.nombresMeses().findIndex(n => n === mesNombre) + 1;
-        if (mesNum <= 0) continue;
-        const codigo = mesesUtils.generarCodigo(anio, mesNum);
-
-        const existente = storage.obtenerMes(codigo);
-        if (existente && existente.hosp_sheet_id && existente.emerg_sheet_id) {
-          // Ya registrado y conectado, saltar
-          continue;
-        }
-
-        let hospSheetId = existente ? (existente.hosp_sheet_id || '') : '';
-        let emergSheetId = existente ? (existente.emerg_sheet_id || '') : '';
-        try {
-          const hijos = await driveManager.listarArchivosEnCarpeta(carp.id);
-          for (const h of hijos) {
-            if (h.mimeType !== 'application/vnd.google-apps.spreadsheet') continue;
-            const nameUp = h.name.toUpperCase();
-            if (nameUp.includes('HOSPITALIZACION') || nameUp.includes('HOSP')) hospSheetId = h.id;
-            else if (nameUp.includes('EMERGENCIA') || nameUp.includes('EMERG')) emergSheetId = h.id;
-          }
-        } catch (e) { /* ignore */ }
-
-        storage.guardarMes({
-          codigo, nombre: carp.name, anio, mes: mesNum,
-          carpetaId: carp.id,
-          hosp_sheet_id: hospSheetId || null,
-          emerg_sheet_id: emergSheetId || null,
-        });
-        console.log('[CACHE] Mes descubierto/enlazado: ' + codigo + ' ' + carp.name);
-      }
-      meses = storage.obtenerTodosMeses();
+      await descubrirMesesDrive();
     } catch (e) {
       console.warn('[CACHE] Error descubriendo meses desde Drive:', e.message);
     }
+
+    const meses = storage.obtenerTodosMeses();
 
     let total = 0;
     for (const mes of meses) {
@@ -226,4 +235,5 @@ module.exports = {
   warmCache,
   iniciarCacheRefresh,
   contarPendientes,
+  descubrirMesesDrive,
 };

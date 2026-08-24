@@ -110,10 +110,7 @@ const API = {
     });
   },
 
-  enlazarMes(anio, mes, carpetaId, hospSheetId, emergSheetId) {
-    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/enlazar`, {
-      method: 'POST',
-      body: JSON.stringify({ anio, mes, carpetaId, hospSheetId, emergSheetId }),
-    });
+  redescubrirMeses() {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/redescubrir`, { method: 'POST' });
   },
 };

@@ -153,6 +153,17 @@ router.get('/meses', lecturas, async (req, res) => {
   res.json({ meses: lista });
 });
 
+// Forzar redescubrimiento de carpetas de meses desde Drive
+router.post('/meses/redescubrir', escrituras, async (req, res) => {
+  try {
+    const descubiertos = await syncService.descubrirMesesDrive();
+    const lista = storage.obtenerTodosMeses();
+    res.json({ exito: true, descubiertos, meses: lista });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/meses/diagnostico', lecturas, async (req, res) => {
   await driveManager.getServiceAccountEmail();
   let archivosSADrive = [];

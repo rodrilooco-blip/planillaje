@@ -146,25 +146,6 @@ const App = {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al crear mes: ' + err.message);
       const btn = document.getElementById('btnNuevoMes');
       if (btn) { btn.disabled = false; btn.textContent = '+'; }
-    }
-  },
-
-  async enlazarMesManual() {
-    const anio = prompt('A\u00f1o (ej. 2026):', new Date().getFullYear());
-    if (!anio || isNaN(anio)) return;
-    const mes = prompt('Mes (1-12):', new Date().getMonth() + 1);
-    if (!mes || isNaN(mes) || mes < 1 || mes > 12) return;
-    const carpetaId = prompt('ID de la carpeta de Google Drive (opcional):', '') || '';
-    const hospSheetId = prompt('ID del Spreadsheet de HOSPITALIZACI\u00d3N (de la URL de Drive):', '') || '';
-    const emergSheetId = prompt('ID del Spreadsheet de EMERGENCIA (de la URL de Drive):', '') || '';
-    try {
-      const resp = await API.enlazarMes(parseInt(anio, 10), parseInt(mes, 10), carpetaId, hospSheetId, emergSheetId);
-      Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Mes enlazado: ' + (resp.mes?.codigo || ''));
-      await this.loadMeses();
-    } catch (err) {
-      Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al enlazar mes: ' + err.message);
-    }
-  },
 
   async checkConnection() {
     try {
@@ -184,7 +165,23 @@ const App = {
     document.getElementById('btnUserMedico').addEventListener('click', () => this.setUserType('medico'));
     document.getElementById('btnExportarExcel')?.addEventListener('click', () => this.exportarExcel());
     document.getElementById('btnNuevoMes')?.addEventListener('click', () => this.crearNuevoMes());
-    document.getElementById('btnEnlazarMes')?.addEventListener('click', () => this.enlazarMesManual());
+    document.getElementById('btnRedescubrir')?.addEventListener('click', () => this.redescubrirMeses());
+  },
+
+  async redescubrirMeses() {
+    const btn = document.getElementById('btnRedescubrir');
+    try {
+      if (btn) { btn.disabled = true; btn.textContent = '\u23F3'; }
+      const resp = await API.redescubrirMeses();
+      const nuevos = resp.descubiertos || 0;
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'success',
+        `${nuevos} mes(es) encontrado(s) en Drive`);
+      await this.loadMeses();
+    } catch (err) {
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al redescubrir: ' + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F50D;'; }
+    }
   },
 
   async exportarExcel() {
