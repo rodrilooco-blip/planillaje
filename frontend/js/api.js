@@ -109,4 +109,11 @@ const API = {
       body: JSON.stringify({ anio, mes }),
     });
   },
+
+  enlazarMes(anio, mes, carpetaId, hospSheetId, emergSheetId) {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/enlazar`, {
+      method: 'POST',
+      body: JSON.stringify({ anio, mes, carpetaId, hospSheetId, emergSheetId }),
+    });
+  },
 };
