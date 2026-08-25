@@ -79,6 +79,10 @@ const API = {
     return this.fetchJSON(`${Utils.API_BASE}/catalogos/${nombre}/completo`);
   },
 
+  actualizarCatalogos() {
+    return this.fetchJSON(`${Utils.API_BASE}/catalogos/actualizar`, { method: 'POST' });
+  },
+
   buscarPacientes(query) {
     return this.fetchJSON(`${Utils.API_BASE}/planos/buscar-pacientes?q=${encodeURIComponent(query)}`);
   },

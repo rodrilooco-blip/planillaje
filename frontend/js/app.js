@@ -174,6 +174,7 @@ const App = {
     document.getElementById('btnExportarExcel')?.addEventListener('click', () => this.exportarExcel());
     document.getElementById('btnNuevoMes')?.addEventListener('click', () => this.crearNuevoMes());
     document.getElementById('btnRedescubrir')?.addEventListener('click', () => this.redescubrirMeses());
+    document.getElementById('btnActualizarCatalogos')?.addEventListener('click', () => this.actualizarCatalogos());
     document.addEventListener('keydown', e => {
       if (e.ctrlKey && e.key === 'Enter' && FormBuilder.currentHoja) {
         e.preventDefault();
@@ -184,6 +185,24 @@ const App = {
         document.getElementById('btnAgregarFila')?.click();
       }
     });
+  },
+
+  async actualizarCatalogos() {
+    const btn = document.getElementById('btnActualizarCatalogos');
+    const status = document.getElementById('statusText');
+    try {
+      if (btn) { btn.disabled = true; btn.classList.add('rotating'); }
+      if (status) status.textContent = 'Actualizando catálogos...';
+      const resultado = await API.actualizarCatalogos();
+      Autocomplete.limpiarCache();
+      if (status) status.textContent = `${resultado.total || 0} datos actualizados`;
+      setTimeout(() => { if (status) status.textContent = 'Conectado'; }, 3500);
+    } catch (err) {
+      if (status) status.textContent = 'Error al actualizar catálogos';
+      setTimeout(() => this.checkConnection(), 3500);
+    } finally {
+      if (btn) { btn.disabled = false; btn.classList.remove('rotating'); }
+    }
   },
 
   async redescubrirMeses() {

@@ -1,8 +1,18 @@
 const { Router } = require('express');
 const catalogoCache = require('../services/catalogoCache');
-const { lecturas } = require('../middleware/rateLimiter');
+const { lecturas, escrituras } = require('../middleware/rateLimiter');
 
 const router = Router();
+
+router.post('/actualizar', escrituras, async (req, res) => {
+  try {
+    const nombres = ['Procedimientos', 'Diagnosticos', 'Medicamentos', 'Beneficiario', 'Dependencia', 'TipoExamen', 'Intrahospital'];
+    const resultado = await catalogoCache.actualizarCatalogos(nombres);
+    res.json({ exito: true, ...resultado });
+  } catch (err) {
+    res.status(500).json({ error: 'No se pudieron actualizar los catálogos: ' + err.message });
+  }
+});
 
 router.get('/:nombre/completo', lecturas, async (req, res) => {
   const { nombre } = req.params;

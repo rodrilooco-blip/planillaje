@@ -38,11 +38,13 @@ function guardarEnArchivo(nombre, datos) {
   }
 }
 
-async function cargarCatalogo(nombre) {
+async function cargarCatalogo(nombre, forzar = false) {
   const key = nombre.toLowerCase();
 
-  const desdeArchivo = cargarDeArchivo(nombre);
-  if (desdeArchivo) return desdeArchivo;
+  if (!forzar) {
+    const desdeArchivo = cargarDeArchivo(nombre);
+    if (desdeArchivo) return desdeArchivo;
+  }
 
   if (loading.has(key)) return loading.get(key);
 
@@ -78,6 +80,15 @@ async function cargarCatalogo(nombre) {
   return result;
 }
 
+async function actualizarCatalogos(nombres) {
+  const resultado = {};
+  for (const nombre of nombres) {
+    const datos = await cargarCatalogo(nombre, true);
+    resultado[nombre.toLowerCase()] = datos.length;
+  }
+  return { catalogos: resultado, total: Object.values(resultado).reduce((suma, cantidad) => suma + cantidad, 0), actualizado: lastUpdated };
+}
+
 function buscar(nombreCatalogo, query, limite = 5) {
   const key = nombreCatalogo.toLowerCase();
   const datos = cache.get(key);
@@ -108,6 +119,7 @@ function getLastUpdated() {
 
 module.exports = {
   cargarCatalogo,
+  actualizarCatalogos,
   buscar,
   obtenerCatalogo,
   getLastUpdated,

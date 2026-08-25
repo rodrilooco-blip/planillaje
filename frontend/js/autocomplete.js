@@ -55,6 +55,12 @@ const Autocomplete = {
     });
   },
 
+  limpiarCache() {
+    Object.keys(catalogosLocal).forEach(key => delete catalogosLocal[key]);
+    Object.keys(tries).forEach(key => delete tries[key]);
+    this.cerrar();
+  },
+
   async asegurarCatalogo(nombre) {
     if (catalogosLocal[nombre]) return;
 
