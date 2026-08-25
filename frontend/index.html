@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Planillaje</title>
-  <link rel="stylesheet" href="css/main.css?v=8">
-  <link rel="stylesheet" href="css/menu.css?v=8">
-  <link rel="stylesheet" href="css/forms.css?v=8">
+  <link rel="stylesheet" href="css/main.css?v=9">
+  <link rel="stylesheet" href="css/menu.css?v=9">
+  <link rel="stylesheet" href="css/forms.css?v=9">
 </head>
 <body>
   <header class="app-header">
     <div class="header-logo">
-      <span class="logo-icon">&#x1F4CB;</span>
-      <h1>Sistema de Planillaje</h1>
+      <span class="logo-mark">PL</span>
+      <div><h1>Planillaje</h1><small>Hospital Miguel Le&oacute;n Bermeo</small></div>
     </div>
     <div class="header-center">
       <div class="user-type-selector">
@@ -63,7 +63,9 @@
             <div id="formFields"></div>
             <div class="form-actions">
               <button type="submit" class="btn btn-primary" id="btnGuardar">&#x1F4BE; Guardar</button>
+              <button type="submit" class="btn btn-continue" id="btnGuardarContinuar">Guardar y continuar</button>
               <button type="button" class="btn btn-secondary" id="btnLimpiar">Limpiar</button>
+              <span class="shortcut-hint">Ctrl + Enter para guardar y continuar</span>
             </div>
           </form>
         </div>
@@ -74,6 +76,7 @@
         <div class="recent-header">
           <h3>&#x1F4CB; &Uacute;ltimos Registros <span id="recentInfo" class="recent-info"></span></h3>
           <div class="recent-actions">
+            <label class="recent-search"><span>&#x1F50E;</span><input id="recentSearch" type="search" placeholder="Buscar c&eacute;dula, apellido o paciente"></label>
             <button class="btn btn-secondary btn-export-excel" id="btnExportarExcel" title="Exportar todo a Excel">&#x1F4C4; Exportar Excel</button>
           </div>
         </div>
@@ -91,13 +94,13 @@
     </main>
   </div>
 
-  <script src="js/utils.js?v=8"></script>
-  <script src="js/api.js?v=8"></script>
-  <script src="js/autocomplete.js?v=8"></script>
-  <script src="js/reglas.js?v=8"></script>
-  <script src="js/menu.js?v=8"></script>
-  <script src="js/recentTable.js?v=8"></script>
-  <script src="js/formBuilder.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/utils.js?v=9"></script>
+  <script src="js/api.js?v=9"></script>
+  <script src="js/autocomplete.js?v=9"></script>
+  <script src="js/reglas.js?v=9"></script>
+  <script src="js/menu.js?v=9"></script>
+  <script src="js/recentTable.js?v=9"></script>
+  <script src="js/formBuilder.js?v=9"></script>
+  <script src="js/app.js?v=9"></script>
 </body>
 </html>

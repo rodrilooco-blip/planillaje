@@ -8,9 +8,11 @@ const App = {
     this.initialized = true;
     this.setupEventListeners();
     Autocomplete.init();
-    await this.checkConnection();
-    await this.loadMeses();
-    Menu.init((tipo, hoja) => this.onSelectHoja(tipo, hoja));
+    await Promise.all([
+      this.checkConnection(),
+      this.loadMeses(),
+      Menu.init((tipo, hoja) => this.onSelectHoja(tipo, hoja)),
+    ]);
   },
 
   setUserType(tipo) {
@@ -47,7 +49,9 @@ const App = {
         // Preseleccionar el mes actual (ej. 26_JULIO si estamos en julio), o el mas reciente como fallback
         const codigoActual = this.generarCodigoMesActual();
         const mesActual = this.meses.find(m => m.codigo === codigoActual);
-        const preseleccionado = mesActual ? mesActual.codigo : this.meses[0].codigo;
+        const guardado = localStorage.getItem('planillaje.mes');
+        const mesGuardado = this.meses.find(m => m.codigo === guardado);
+        const preseleccionado = mesGuardado?.codigo || mesActual?.codigo || this.meses[0].codigo;
         select.value = preseleccionado;
         this.switchMes(preseleccionado);
       } else {
@@ -69,6 +73,7 @@ const App = {
 
   switchMes(codigo) {
     window.mesActual = codigo || '';
+    if (codigo) localStorage.setItem('planillaje.mes', codigo);
     const mes = this.meses.find(m => m.codigo === codigo);
     document.getElementById('monthSelect').value = codigo || '';
     this.actualizarIndicadorDrive(mes);
@@ -169,6 +174,16 @@ const App = {
     document.getElementById('btnExportarExcel')?.addEventListener('click', () => this.exportarExcel());
     document.getElementById('btnNuevoMes')?.addEventListener('click', () => this.crearNuevoMes());
     document.getElementById('btnRedescubrir')?.addEventListener('click', () => this.redescubrirMeses());
+    document.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.key === 'Enter' && FormBuilder.currentHoja) {
+        e.preventDefault();
+        document.getElementById('btnGuardarContinuar')?.click();
+      }
+      if (e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        document.getElementById('btnAgregarFila')?.click();
+      }
+    });
   },
 
   async redescubrirMeses() {

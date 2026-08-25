@@ -1,6 +1,7 @@
 const RecentTable = {
   currentTipo: null,
   currentHoja: null,
+  registros: [],
 
   async cargar(tipo, hoja) {
     this.currentTipo = tipo;
@@ -18,6 +19,9 @@ const RecentTable = {
     try {
       const res = await API.getRegistros(tipo, hoja);
       const registros = res.registros || [];
+      this.registros = registros;
+      const search = document.getElementById('recentSearch');
+      if (search) search.oninput = () => this.renderRegistros(this.filtrar(search.value));
 
       info.textContent = registros.length + ' registro(s)';
 
@@ -26,6 +30,27 @@ const RecentTable = {
         return;
       }
 
+      this.renderRegistros(registros);
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="7" class="td-center">Error al cargar: ' + Utils.escapeHTML(err.message) + '</td></tr>';
+    }
+  },
+
+  filtrar(query) {
+    const q = (query || '').trim().toUpperCase();
+    if (!q) return this.registros;
+    return this.registros.filter(reg => Object.values(reg.datos || {}).some(v => String(v).toUpperCase().includes(q)));
+  },
+
+  renderRegistros(registros) {
+      const tbody = document.getElementById('recentBody');
+      if (!tbody) return;
+      const tipo = this.currentTipo;
+      const hoja = this.currentHoja;
+      if (registros.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="td-center">No se encontraron registros</td></tr>';
+        return;
+      }
       const mostrar = registros.slice(0, 15);
       let html = '';
 
@@ -34,7 +59,9 @@ const RecentTable = {
         const numPac = this.buscarValor(d, ['NO_PACIENTE', 'NO.', 'NO', 'NUMERO']) || reg.fila;
         const ident = this.buscarValor(d, ['IDENTIFICACION_BENEFICIARIO', 'IDENTIFICACION']) || '-';
         const apell = this.buscarValor(d, ['APELLIDOS']) || '-';
-        const proc = this.buscarValor(d, ['PROCEDIMIENTO', 'CODIGO_DE_PROCEDIMIENTO', 'CODIGO']) || '-';
+        const procCodigo = this.buscarValor(d, ['CODIGO_DE_PROCEDIMIENTO', 'CODIGO_PROCEDIMIENTO', 'CODIGO_DE_MEDICAMENTO', 'CODIGO']) || '';
+        const procDetalle = this.buscarValor(d, ['NOMBRE_DEL_PROCEDIMIENTO', 'NOMBRE_PROCEDIMIENTO', 'NOMBRE_DEL_MEDICAMENTO', 'NOMBRE_MEDICAMENTO', 'PROCEDIMIENTO']) || '';
+        const proc = [procCodigo, procDetalle].filter((valor, indice, lista) => valor && lista.indexOf(valor) === indice).join(' — ') || '-';
         const fecha = this.buscarValor(d, ['FECHA_ATENCION', 'FECHA_INGRESO', 'FECHA']) || '-';
 
         html += `<tr>
@@ -42,7 +69,7 @@ const RecentTable = {
           <td>${Utils.escapeHTML(String(numPac))}</td>
           <td>${Utils.escapeHTML(String(ident))}</td>
           <td>${Utils.escapeHTML(String(apell).substring(0, 25))}</td>
-          <td>${Utils.escapeHTML(String(proc).substring(0, 15))}</td>
+          <td class="td-procedimiento" title="${Utils.escapeHTML(String(proc))}">${Utils.escapeHTML(String(proc))}</td>
           <td>${Utils.escapeHTML(String(fecha))}</td>
           <td class="td-actions">
             <button class="btn-sm btn-edit" data-tipo="${tipo}" data-hoja="${hoja}" data-fila="${reg.fila}" title="Editar">&#x270F;&#xFE0F;</button>
@@ -59,10 +86,6 @@ const RecentTable = {
       tbody.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', () => this.eliminar(btn.dataset.tipo, btn.dataset.hoja, parseInt(btn.dataset.fila), btn.closest('tr')));
       });
-
-    } catch (err) {
-      tbody.innerHTML = '<tr><td colspan="7" class="td-center">Error al cargar: ' + err.message + '</td></tr>';
-    }
   },
 
   buscarValor(obj, keys) {

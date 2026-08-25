@@ -25,7 +25,11 @@ const FormBuilder = {
       { keywords: ['FECHA_EGRESO'] },
       { keywords: ['FECHA'] },
     ]},
-    { id: 'diagnostico', titulo: '3. Diagn\u00f3stico', campos: [
+    { id: 'profesional', titulo: '3. Profesional responsable', campos: [
+      { keywords: ['APELLIDO_Y_NOMBRE_DEL_PROFESIONAL', 'APELLIDOS_Y_NOMBRES_DEL_PROFESIONAL'] },
+      { keywords: ['MEDICO'] },
+    ]},
+    { id: 'diagnostico', titulo: '4. Diagn\u00f3stico', campos: [
       { keywords: ['NO_PACIENTE', 'NUMERO_PACIENTE'] },
       { keywords: ['DIAGNOSTICO', 'PRINCIPAL'] },
       { keywords: ['TIPO_DIAGNOSTICO'] },
@@ -38,8 +42,8 @@ const FormBuilder = {
       { keywords: ['CIE'] },
     ]},
     { id: 'examen', titulo: 'Examen', campos: [] },
-    { id: 'procedimiento', titulo: '4. Procedimientos / Insumos (1 fila por insumo)', campos: [] },
-    { id: 'derivacion', titulo: '5. Derivaci\u00f3n', campos: [
+    { id: 'procedimiento', titulo: '5. Procedimientos / Insumos (1 fila por insumo)', campos: [] },
+    { id: 'derivacion', titulo: '6. Derivaci\u00f3n', campos: [
       { keywords: ['CODIGO_DERIVACION'] },
       { keywords: ['SECUENCIAL', 'DERIVACION'] },
       { keywords: ['CONTINGENCIA'] },
@@ -59,7 +63,7 @@ const FormBuilder = {
       { keywords: ['DISCAPACIDAD'] },
       { keywords: ['OBSERVACION'] },
     ]},
-    { id: 'otros', titulo: '6. Otros Datos', campos: [
+    { id: 'otros', titulo: '7. Otros Datos', campos: [
       { keywords: ['DURACION'] },
       { keywords: ['PORCENTAJE', 'IVA'] },
       { keywords: ['VALOR', 'IVA'] },
@@ -68,8 +72,6 @@ const FormBuilder = {
       { keywords: ['CANTIDAD'] },
       { keywords: ['MARCA_FINAL'] },
       { keywords: ['UNIDAD_OPERATIVA'] },
-      { keywords: ['PROFESIONAL'] },
-      { keywords: ['MEDICO'] },
       { keywords: ['ARCHIVO'] },
       { keywords: ['PAGINA'] },
       { keywords: ['ANESTESIA'] },
@@ -185,7 +187,7 @@ const FormBuilder = {
       }
 
       if (seccionHtml) {
-        html += `<div class="form-section"><div class="form-section-title">${seccion.titulo}</div><div class="form-grid">${seccionHtml}</div></div>`;
+        html += `<div class="form-section" data-section="${seccion.id}"><div class="form-section-title">${seccion.titulo}</div><div class="form-grid">${seccionHtml}</div></div>`;
       }
     }
 
@@ -203,7 +205,7 @@ const FormBuilder = {
         }
       }
       if (restHtml) {
-        html += `<div class="form-section"><div class="form-section-title">Otros Datos</div><div class="form-grid">${restHtml}</div></div>`;
+        html += `<div class="form-section" data-section="otros"><div class="form-section-title">Otros Datos</div><div class="form-grid">${restHtml}</div></div>`;
       }
     }
 
@@ -246,7 +248,8 @@ const FormBuilder = {
     Reglas.setupEventListeners();
     this.setupSubmitHandler(editFila);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
-    if (this.currentTipo === 'hospitalizacion' && !editFila) {
+    this.configurarSeccionesPlegables();
+    if (!editFila) {
       this.agregarBuscadorPacientes();
     }
 
@@ -442,7 +445,8 @@ const FormBuilder = {
 
     const html = `
       <div id="buscadorPacientes" class="buscador-pacientes">
-        <strong>Buscar paciente desde Emergencia</strong>
+        <strong>Buscar y reutilizar datos de un paciente</strong>
+        <span class="buscador-help">Escriba la c&eacute;dula o el nombre para completar automáticamente sus datos.</span>
         <div class="buscador-row">
           <input type="text" id="inputBuscarPaciente" placeholder="C\u00e9dula o nombres...">
           <button id="btnBuscarPaciente" class="btn-buscar">Buscar</button>
@@ -484,7 +488,7 @@ const FormBuilder = {
             this.llenarFormularioConDatos(datos);
             resultsDiv.style.display = 'none';
             input.value = '';
-            Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Paciente cargado desde Emergencia');
+            Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Datos del paciente cargados');
           });
 
         });
@@ -515,6 +519,36 @@ const FormBuilder = {
       }
     });
 
+    Reglas.calcularEdad();
+    Reglas.copiarDatosTitular();
+  },
+
+  configurarSeccionesPlegables() {
+    document.querySelectorAll('#formFields .form-section').forEach((section, index) => {
+      const title = section.querySelector('.form-section-title');
+      if (!title) return;
+      title.setAttribute('role', 'button');
+      title.setAttribute('tabindex', '0');
+      title.title = 'Mostrar u ocultar sección';
+      const toggle = () => section.classList.toggle('collapsed');
+      title.addEventListener('click', toggle);
+      title.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      });
+      const siempreVisibles = ['paciente', 'fechas', 'profesional', 'diagnostico'];
+      if (!siempreVisibles.includes(section.dataset.section) && !section.querySelector('#itemsTable')) {
+        section.classList.add('collapsed');
+      }
+    });
+  },
+
+  restaurarDatosPaciente(datos) {
+    const conservar = ['IDENTIFICACION', 'APELLIDOS', 'NOMBRES', 'SEXO', 'FECHA_NACIMIENTO',
+      'EDAD', 'PARENTESCO', 'AFILIADO', 'TITULAR', 'BENEFICIARIO', 'DEPENDENCIA'];
+    document.querySelectorAll('#formFields input, #formFields select, #formFields textarea').forEach(el => {
+      if (!el.name || el.disabled || !conservar.some(k => el.name.includes(k))) return;
+      if (datos[el.name] !== undefined) el.value = datos[el.name];
+    });
     Reglas.calcularEdad();
     Reglas.copiarDatosTitular();
   },
@@ -654,15 +688,20 @@ const FormBuilder = {
 
     form.onsubmit = async (e) => {
       e.preventDefault();
+      const mantenerPaciente = e.submitter?.id === 'btnGuardarContinuar';
       btn.disabled = true;
+      const btnContinuar = document.getElementById('btnGuardarContinuar');
+      if (btnContinuar) btnContinuar.disabled = true;
       btn.textContent = 'Guardando...';
 
       const errores = validarFormulario();
-      if (errores.length > 0) {
+        if (errores.length > 0) {
         Utils.mostrarAlerta(document.getElementById('formMessages'), 'error',
           'Campos obligatorios vac\u00edos: ' + errores.join(', '));
         btn.disabled = false;
+        if (btnContinuar) btnContinuar.disabled = false;
         btn.textContent = editFila ? '\u270F\uFE0F Actualizar' : '\u{1F4BE} Guardar';
+        document.querySelector('#formFields .field-error')?.focus();
         return;
       }
 
@@ -689,6 +728,7 @@ const FormBuilder = {
 
         form.reset();
         Reglas.aplicarValoresFijos(this.currentHoja);
+        if (mantenerPaciente && !editFila) this.restaurarDatosPaciente(datosPaciente);
         limpiarErrores();
 
         if (this.camposRepetibles.length > 0 && !editFila) {
@@ -703,6 +743,7 @@ const FormBuilder = {
         Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error: ' + err.message);
       } finally {
         btn.disabled = false;
+        if (btnContinuar) btnContinuar.disabled = false;
         btn.textContent = editFila ? '\u270F\uFE0F Actualizar' : '\u{1F4BE} Guardar';
       }
     };
