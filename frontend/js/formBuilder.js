@@ -249,7 +249,8 @@ const FormBuilder = {
     this.setupSubmitHandler(editFila);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
     this.configurarSeccionesPlegables();
-    if (!editFila) {
+    document.getElementById('buscadorPacientes')?.remove();
+    if (this.currentTipo === 'hospitalizacion' && !editFila) {
       this.agregarBuscadorPacientes();
     }
 
