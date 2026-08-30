@@ -73,8 +73,8 @@ function aplicarReglasFijas(hoja, data) {
     }
   }
 
-  const fechaNacKey = buscarKey(r, 'FECHA_NACIMIENTO');
-  const fechaIngKey = buscarKey(r, 'FECHA_INGRESO') || buscarKey(r, 'FECHA_ATENCION');
+  const fechaNacKey = buscarKeys(r, 'FECHA', 'NACIMIENTO');
+  const fechaIngKey = buscarKeys(r, 'FECHA', 'INGRESO') || buscarKeys(r, 'FECHA', 'ATENCION');
   const edadKey = buscarKey(r, 'EDAD');
 
   if (fechaNacKey && fechaIngKey && edadKey) {
@@ -97,11 +97,14 @@ function aplicarReglasFijas(hoja, data) {
 
 function validarData(data) {
   const errores = [];
-  const idKey = buscarKey(data, 'IDENTIFICACION_BENEFICIARIO');
+  const idKey = buscarKeys(data, 'IDENTIFICACION', 'BENEFICIARIO') ||
+    buscarKeys(data, 'IDENTIFICACION', 'AFILIADO') ||
+    buscarKeys(data, 'IDENTIFICACION', 'TITULAR') ||
+    buscarKey(data, 'IDENTIFICACION');
   if (!idKey || !data[idKey]) errores.push('IDENTIFICACION es requerido');
   const apeKey = buscarKey(data, 'APELLIDOS');
   if (!apeKey || !data[apeKey]) errores.push('APELLIDOS es requerido');
-  const fecKey = buscarKey(data, 'FECHA_INGRESO') || buscarKey(data, 'FECHA_ATENCION');
+  const fecKey = buscarKeys(data, 'FECHA', 'INGRESO') || buscarKeys(data, 'FECHA', 'ATENCION');
   if (!fecKey || !data[fecKey]) errores.push('FECHA DE INGRESO/ATENCION es requerida');
   return errores;
 }

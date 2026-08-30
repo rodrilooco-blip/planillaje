@@ -10,7 +10,8 @@ const API = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'Error ' + res.status);
+      const detalles = Array.isArray(err.detalles) && err.detalles.length ? ': ' + err.detalles.join(', ') : '';
+      throw new Error((err.error || 'Error ' + res.status) + detalles);
     }
     return res.json();
   },

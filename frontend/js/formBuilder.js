@@ -634,8 +634,19 @@ const FormBuilder = {
       const nombresCampos = {};
       campos.forEach(el => { if (el.name) nombresCampos[el.name] = el; });
 
-      const required = ['IDENTIFICACION_BENEFICIARIO', 'APELLIDOS', 'FECHA_INGRESO'];
+      const required = ['APELLIDOS'];
       const faltantes = [];
+
+      const identificacionKey = Object.keys(nombresCampos).find(k =>
+        k.includes('IDENTIFICACION') &&
+        (k.includes('BENEFICIARIO') || k.includes('AFILIADO') || k.includes('TITULAR'))
+      ) || Object.keys(nombresCampos).find(k => k.includes('IDENTIFICACION'));
+      if (identificacionKey && !nombresCampos[identificacionKey].value.trim()) {
+        const el = nombresCampos[identificacionKey];
+        faltantes.push(identificacionKey);
+        el.classList.add('field-error');
+        el.closest('.form-group')?.querySelector('label')?.classList.add('label-error');
+      }
 
       required.forEach(r => {
         const matchKey = Object.keys(nombresCampos).find(k =>
@@ -653,10 +664,10 @@ const FormBuilder = {
       });
 
       // Find which date field to check: prefer FECHA_INGRESO, fallback FECHA_ATENCION
-      const fechaKeys = Object.keys(nombresCampos).filter(k => k.includes('FECHA_INGRESO'));
+      const fechaKeys = Object.keys(nombresCampos).filter(k => k.includes('FECHA') && k.includes('INGRESO'));
       if (fechaKeys.length === 0) {
         // No FECHA_INGRESO in this sheet, check FECHA_ATENCION instead
-        const fechaAtencionKeys = Object.keys(nombresCampos).filter(k => k.includes('FECHA_ATENCION'));
+        const fechaAtencionKeys = Object.keys(nombresCampos).filter(k => k.includes('FECHA') && k.includes('ATENCION'));
         fechaAtencionKeys.forEach(fk => {
           const el = nombresCampos[fk];
           if (!el.value || !el.value.trim()) {
@@ -673,7 +684,7 @@ const FormBuilder = {
         // Has FECHA_INGRESO, check if FECHA_ATENCION can satisfy instead
         const fechaIngresoEl = nombresCampos[fechaKeys[0]];
         if (!fechaIngresoEl.value || !fechaIngresoEl.value.trim()) {
-          const fechaAtencionKey = Object.keys(nombresCampos).find(k => k.includes('FECHA_ATENCION'));
+        const fechaAtencionKey = Object.keys(nombresCampos).find(k => k.includes('FECHA') && k.includes('ATENCION'));
           if (fechaAtencionKey && nombresCampos[fechaAtencionKey].value) {
             fechaIngresoEl.classList.remove('field-error');
             const label = fechaIngresoEl.closest('.form-group')?.querySelector('label');
