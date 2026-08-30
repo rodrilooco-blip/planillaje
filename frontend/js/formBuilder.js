@@ -416,22 +416,29 @@ const FormBuilder = {
     document.querySelectorAll('#formFields .profile-hidden').forEach(el => el.classList.remove('profile-hidden'));
     document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
 
-    if (this.currentTipo !== 'emergencia' || this.currentHoja !== 'IESS-G-EMERG') return;
-
-    const camposVisibles = new Set([
-      'CODIGO_DE_DEPENDENCIA', 'TIPO_BENEFICIARIO', 'IDENTIFICACION_BENEFICIARIO',
-      'APELLIDOS_Y_NOMBRES_DEL_BENEFICIARIO', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD',
-      'PARENTESCO_DEL_BENEFICIARIO_CON_EL_TITULAR', 'IDENTIFICACION_AFILIADO',
-      'APELLIDOS_Y_NOMBRES_DEL_TITULAR', 'FECHA_ATENCION', 'APELLIDO_Y_NOMBRE_DEL_PROFESIONAL',
-      'DIAGNOSTICO_PRINCIPAL',
-      'DG_S_1', 'DG_S_2', 'DG_S_3', 'DG_S_4', 'DG_S_5',
-      'DG_S__1', 'DG_S__2', 'DG_S__3', 'DG_S__4', 'DG_S__5',
-      'UNIDAD_OPERATIVA',
-    ]);
+    const esCampoVisible = key => {
+      const k = key.toUpperCase();
+      return k.includes('DEPENDENCIA') ||
+        k.includes('TIPO_BENEFICIARIO') ||
+        (k.includes('BENEFICIARIO') && (k.includes('IDENTIFICACION') || k.includes('CEDULA'))) ||
+        (k.includes('BENEFICIARIO') && k.includes('APELLIDOS') && k.includes('NOMBRES')) ||
+        k === 'SEXO' ||
+        (k.includes('FECHA') && k.includes('NACIMIENTO')) ||
+        k === 'EDAD' ||
+        k.includes('PARENTESCO') ||
+        (k.includes('IDENTIFICACION') && (k.includes('AFILIADO') || k.includes('TITULAR'))) ||
+        (k.includes('APELLIDOS') && k.includes('NOMBRES') && k.includes('TITULAR')) ||
+        (k.includes('FECHA') && (k.includes('ATENCION') || k.includes('INGRESO'))) ||
+        (k.includes('APELLIDO') && k.includes('NOMBRE') && k.includes('PROFESIONAL')) ||
+        k.includes('MEDICO') ||
+        (k.includes('DIAGNOSTICO') && k.includes('PRINCIPAL')) ||
+        /^DG_S_+\d$/.test(k) ||
+        k.includes('UNIDAD_OPERATIVA');
+    };
 
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
-      if (input?.name && !camposVisibles.has(input.name)) group.classList.add('profile-hidden');
+      if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
     });
 
     document.querySelectorAll('#formFields .form-section').forEach(section => {
