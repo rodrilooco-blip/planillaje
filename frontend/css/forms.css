@@ -479,6 +479,7 @@
 }
 
 .items-table .td-codigo { min-width: 130px; }
+.items-table .td-fecha { min-width: 145px; }
 .items-table .td-nombre { min-width: 240px; }
 .items-table .td-accion { text-align: center; width: 50px; }
 

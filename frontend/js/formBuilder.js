@@ -776,12 +776,16 @@ const FormBuilder = {
 
   renderTablaInsumos() {
     const campos = this.camposRepetibles;
+    const fechaIngresoKey = this.currentTipo === 'hospitalizacion'
+      ? Object.keys(this.fieldMap).find(key => key.includes('FECHA') && key.includes('INGRESO')) || ''
+      : '';
     const tipoExamenKey = campos.find(c => c.key.includes('TIPO_EXAMEN'))?.key || '';
     const codigoKey = campos.find(c => c.nombre.toUpperCase().includes('CODIGO') || c.key.includes('CODIGO'))?.key || '';
     const nombreKey = campos.find(c => c.key.includes('NOMBRE'))?.key || '';
     const cantidadKey = campos.find(c => c.key.includes('CANTIDAD'))?.key || '';
 
     const colVisibility = [
+      { key: fechaIngresoKey, label: 'Fecha', type: 'date' },
       { key: tipoExamenKey, label: 'Tipo Examen', type: 'catalogo', catalogo: 'tipoexamen', targetDesc: codigoKey },
       { key: codigoKey, label: 'C\u00f3digo', type: 'codigo-readonly' },
       { key: nombreKey, label: 'Nombre', type: 'nombre-buscable', catalogo: 'procedimientos,medicamentos', targetCode: codigoKey },
@@ -848,6 +852,13 @@ const FormBuilder = {
 
       if (col.type === 'number') {
         return `<td><input type="number" id="${id}" data-item-key="${col.key}" step="0.01" value="0"></td>`;
+      }
+
+      if (col.type === 'date') {
+        const filaAnterior = tbody.lastElementChild?.querySelector(`input[data-item-key="${col.key}"]`)?.value;
+        const fechaGeneral = document.querySelector(`#formFields [name="${col.key}"]`)?.value;
+        const fecha = filaAnterior || fechaGeneral || Utils.getFechaHoy();
+        return `<td class="td-fecha"><input type="date" id="${id}" data-item-key="${col.key}" value="${fecha}" aria-label="Fecha del procedimiento o insumo"></td>`;
       }
 
       return `<td><input type="text" id="${id}" data-item-key="${col.key}"></td>`;
