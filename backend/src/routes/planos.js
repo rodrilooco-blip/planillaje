@@ -301,7 +301,7 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
 
     const noPacienteHeader = encabezados.find(h => {
       const normalizado = normalizarKey(h);
-      return normalizado.includes('NUMERO_PACIENTE') || normalizado.includes('NO_PACIENTE');
+      return normalizado.includes('NUMERO_PACIENTE') || normalizado.includes('NMERO_PACIENTE') || normalizado.includes('NO_PACIENTE');
     });
     if (noPacienteHeader) {
       const noPacienteKey = normalizarKey(noPacienteHeader);

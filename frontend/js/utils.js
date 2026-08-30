@@ -17,6 +17,15 @@ const Utils = {
     return new Date().toISOString().split('T')[0];
   },
 
+  toInputDate(valor) {
+    const fecha = String(valor || '').trim();
+    if (!fecha) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return fecha;
+    const match = fecha.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (!match) return fecha;
+    return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+  },
+
   normalizar(str) {
     return (str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   },

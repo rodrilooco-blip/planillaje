@@ -97,6 +97,42 @@ const RecentTable = {
     return '';
   },
 
+  normalizarCampo(nombre) {
+    return Utils.normalizar(String(nombre || ''))
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+  },
+
+  claveAtencion(datos) {
+    const numero = this.buscarValor(datos, ['NMERO_PACIENTE', 'NUMERO_PACIENTE', 'NO_PACIENTE', 'NO.']);
+    if (String(numero || '').trim()) return 'NUM:' + String(numero).trim();
+
+    const identificacion = this.buscarValor(datos, [
+      'CEDULA_DE_IDENTIDAD_DEL_BENEFICIARIO',
+      'IDENTIFICACION_BENEFICIARIO',
+      'IDENTIFICACION_DEL_BENEFICIARIO',
+    ]);
+    const fecha = this.buscarValor(datos, ['FECHA_DE_INGRESO', 'FECHA_INGRESO', 'FECHA_ATENCION']);
+    if (!identificacion || !fecha) return '';
+    return 'PAC:' + String(identificacion).trim() + '|FECHA:' + String(fecha).trim();
+  },
+
+  encontrarInputParaCampo(inputs, key) {
+    const buscada = this.normalizarCampo(key);
+    let input = [...inputs].find(el => this.normalizarCampo(el.name) === buscada);
+    if (input) return input;
+
+    const esIdentificacionBeneficiario =
+      buscada.includes('BENEFICIARIO') && (buscada.includes('CEDULA') || buscada.includes('IDENTIFICACION'));
+    if (esIdentificacionBeneficiario) {
+      input = [...inputs].find(el => {
+        const nombre = this.normalizarCampo(el.name);
+        return nombre.includes('BENEFICIARIO') && (nombre.includes('CEDULA') || nombre.includes('IDENTIFICACION'));
+      });
+    }
+    return input || null;
+  },
+
   async editar(tipo, hoja, fila) {
     if (!confirm('Editar registro #' + fila + '?')) return;
     try {
@@ -105,16 +141,18 @@ const RecentTable = {
 
       const inputs = document.querySelectorAll('#formFields input, #formFields select');
       for (const [key, val] of Object.entries(res.datos)) {
-        const normalizedKey = key.replace(/_/g, '').toLowerCase();
-        for (const input of inputs) {
-          if (input.name) {
-            const inputKey = input.name.replace(/_/g, '').toLowerCase();
-            if (normalizedKey === inputKey) {
-              if (!input.disabled) input.value = val;
-              break;
-            }
-          }
-        }
+        const input = this.encontrarInputParaCampo(inputs, key);
+        if (input && !input.disabled) input.value = input.type === 'date' ? Utils.toInputDate(val) : val;
+      }
+
+      if (tipo === 'hospitalizacion') {
+        const clave = this.claveAtencion(res.datos);
+        const grupo = clave
+          ? this.registros.filter(reg => this.claveAtencion(reg.datos || {}) === clave)
+          : [];
+        const registrosAtencion = grupo.length ? grupo : [{ fila, datos: res.datos }];
+        FormBuilder.editFilas = registrosAtencion.map(reg => reg.fila);
+        FormBuilder.cargarItemsEdicion(registrosAtencion.map(reg => reg.datos || {}));
       }
       Reglas.aplicarValoresFijos(hoja);
     } catch (err) {

@@ -133,6 +133,7 @@ const FormBuilder = {
   async build(tipo, hoja, editFila) {
     this.currentTipo = tipo;
     this.currentHoja = hoja;
+    if (!editFila) delete this.editFilas;
 
     document.getElementById('formTitle').textContent =
       (tipo === 'emergencia' ? 'Emergencia' : 'Hospitalizaci\u00f3n') + ' - ' + hoja +
@@ -766,7 +767,7 @@ const FormBuilder = {
         if (el.name && !el.dataset.itemKey) datosPaciente[el.name] = (el.value || '').toUpperCase();
       });
 
-      const items = this.obtenerItemsInsumos();
+      const items = this.obtenerItemsInsumos(Boolean(editFila));
 
       try {
         if (items.length > 0 && !editFila) {
@@ -775,8 +776,22 @@ const FormBuilder = {
           Utils.mostrarAlerta(document.getElementById('formMessages'), 'success',
             `${items.length} registro(s) guardado(s)` + (status.pendientes > 0 ? ` (sync pendiente: ${status.pendientes})` : ' (sincronizado)'));
         } else if (editFila) {
-          await API.actualizarRegistro(this.currentTipo, this.currentHoja, editFila, datosPaciente);
-          Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro actualizado');
+          const filasEdicion = this.editFilas?.length ? this.editFilas : [editFila];
+          if (items.length > 0 && filasEdicion.length > 1) {
+            for (let i = 0; i < filasEdicion.length; i++) {
+              await API.actualizarRegistro(this.currentTipo, this.currentHoja, filasEdicion[i], {
+                ...datosPaciente,
+                ...(items[i] || {}),
+              });
+            }
+            Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', `${filasEdicion.length} registros de la atención actualizados`);
+          } else {
+            await API.actualizarRegistro(this.currentTipo, this.currentHoja, editFila, {
+              ...datosPaciente,
+              ...(items[0] || {}),
+            });
+            Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro actualizado');
+          }
         } else {
           await API.guardarRegistro(this.currentTipo, this.currentHoja, datosPaciente);
           Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Registro guardado');
@@ -795,6 +810,7 @@ const FormBuilder = {
 
         RecentTable.cargar(this.currentTipo, this.currentHoja);
         delete this.editFila;
+        delete this.editFilas;
       } catch (err) {
         Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error: ' + err.message);
       } finally {
@@ -932,7 +948,29 @@ const FormBuilder = {
     });
   },
 
-  obtenerItemsInsumos() {
+  cargarItemsEdicion(registros) {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody || !this._colVisibility?.length) return;
+    tbody.innerHTML = '';
+
+    for (const datos of registros) {
+      this.agregarFilaInsumo();
+      const tr = tbody.lastElementChild;
+      for (const col of this._colVisibility) {
+        const input = tr?.querySelector(`[data-item-key="${col.key}"]`);
+        if (!input) continue;
+        const clave = Object.keys(datos).find(key => this.getKey(key) === col.key);
+        const valor = clave ? datos[clave] : '';
+        input.value = input.type === 'date' ? Utils.toInputDate(valor) : (valor || '');
+      }
+    }
+
+    document.getElementById('btnAgregarFila')?.classList.add('profile-hidden-action');
+    tbody.querySelectorAll('.btn-quitar-fila').forEach(btn => btn.classList.add('profile-hidden-action'));
+    this.renumerarFilas();
+  },
+
+  obtenerItemsInsumos(incluirVacios = false) {
     const tbody = document.getElementById('itemsTableBody');
     if (!tbody) return [];
     const items = [];
@@ -940,15 +978,14 @@ const FormBuilder = {
 
     for (const tr of tbody.children) {
       const item = {};
-      let codigo = '';
+      let tieneDetalle = false;
       for (const col of colVisibility) {
         const input = tr.querySelector(`[data-item-key="${col.key}"]`);
         const val = input ? (input.value || '').toUpperCase().trim() : '';
         item[col.key] = val;
-        if (col.type === 'catalogo') codigo = val;
+        if (['catalogo', 'codigo-readonly', 'nombre-buscable'].includes(col.type) && val) tieneDetalle = true;
       }
-      // Verificar que la fila tenga al menos un código
-      if (codigo) items.push(item);
+      if (tieneDetalle || incluirVacios) items.push(item);
     }
     return items;
   },
