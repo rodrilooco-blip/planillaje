@@ -248,6 +248,7 @@ const FormBuilder = {
     Reglas.setupEventListeners();
     this.setupSubmitHandler(editFila);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
+    this.aplicarPerfilHoja();
     this.configurarSeccionesPlegables();
     document.getElementById('buscadorPacientes')?.remove();
     if (this.currentTipo === 'hospitalizacion' && !editFila) {
@@ -264,11 +265,15 @@ const FormBuilder = {
     const labelText = this.formatearLabel(nombre);
     let inputHtml;
 
+    const esDependencia = this.limpiarNombreColumna(nombre).toUpperCase().includes('DEPENDENCIA');
+
     if (this.esCampoBloqueado(nombre)) {
       inputHtml = `<input type="text" id="f-${key}" name="${key}" value="${this.getValorFijo(nombre)}" disabled>`;
     } else if (this.esCampoFecha(nombre)) {
       const val = Utils.getFechaHoy();
       inputHtml = `<input type="date" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
+    } else if (esDependencia) {
+      inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="dependencia" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="Buscar código o dependencia..."></div>`;
     } else if (this.esCampoSelect(nombre)) {
       const nSel = this.limpiarNombreColumna(nombre).toUpperCase();
       const esParentesco = nSel.includes('PARENTESCO');
@@ -405,6 +410,38 @@ const FormBuilder = {
         el.classList.toggle('hidden-field', esMedico);
       }
     });
+  },
+
+  aplicarPerfilHoja() {
+    document.querySelectorAll('#formFields .profile-hidden').forEach(el => el.classList.remove('profile-hidden'));
+    document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
+
+    if (this.currentTipo !== 'emergencia' || this.currentHoja !== 'IESS-G-EMERG') return;
+
+    const camposVisibles = new Set([
+      'CODIGO_DE_DEPENDENCIA', 'TIPO_BENEFICIARIO', 'IDENTIFICACION_BENEFICIARIO',
+      'APELLIDOS_Y_NOMBRES_DEL_BENEFICIARIO', 'SEXO', 'FECHA_NACIMIENTO', 'EDAD',
+      'PARENTESCO_DEL_BENEFICIARIO_CON_EL_TITULAR', 'IDENTIFICACION_AFILIADO',
+      'APELLIDOS_Y_NOMBRES_DEL_TITULAR', 'FECHA_ATENCION', 'APELLIDO_Y_NOMBRE_DEL_PROFESIONAL',
+      'DIAGNOSTICO_PRINCIPAL',
+      'DG_S_1', 'DG_S_2', 'DG_S_3', 'DG_S_4', 'DG_S_5',
+      'DG_S__1', 'DG_S__2', 'DG_S__3', 'DG_S__4', 'DG_S__5',
+      'UNIDAD_OPERATIVA',
+    ]);
+
+    document.querySelectorAll('#formFields .form-group').forEach(group => {
+      const input = group.querySelector('input, select, textarea');
+      if (input?.name && !camposVisibles.has(input.name)) group.classList.add('profile-hidden');
+    });
+
+    document.querySelectorAll('#formFields .form-section').forEach(section => {
+      const tieneCamposVisibles = [...section.querySelectorAll('.form-group')].some(group => !group.classList.contains('profile-hidden'));
+      if (!tieneCamposVisibles && !section.querySelector('#itemsTable')) section.classList.add('profile-hidden');
+    });
+
+    document.getElementById('btnGuardar')?.classList.add('profile-hidden-action');
+    document.getElementById('btnLimpiar')?.classList.add('profile-hidden-action');
+    document.querySelector('.form-actions .shortcut-hint')?.classList.add('profile-hidden-action');
   },
 
   esCampoSelect(nombre) {
@@ -591,7 +628,7 @@ const FormBuilder = {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     return n.includes('PROCEDIMIENTO') || n.includes('DIAGN\u00d3STICO') || n.includes('DIAGNOSTICO') ||
            n.includes('MEDICAMENTO') || n.includes('EXAMEN') ||
-           n.includes('INTRAHOSPITAL') || n.includes('BENEFICIARIO') ||
+           n.includes('INTRAHOSPITAL') || n.includes('TIPO BENEFICIARIO') || n.includes('TIPO_BENEFICIARIO') ||
            n.startsWith('DG.') || n.startsWith('DG ');
   },
 
@@ -603,7 +640,7 @@ const FormBuilder = {
     if (n.includes('MEDICAMENTO')) return 'medicamentos';
     if (n.includes('EXAMEN')) return 'tipoexamen';
     if (n.includes('INTRAHOSPITAL')) return 'intrahospital';
-    if (n.includes('BENEFICIARIO')) return 'beneficiario';
+    if (n.includes('TIPO BENEFICIARIO') || n.includes('TIPO_BENEFICIARIO')) return 'beneficiario';
     return 'procedimientos,medicamentos';
   },
 

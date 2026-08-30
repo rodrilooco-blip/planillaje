@@ -288,3 +288,5 @@ body {
 .btn-danger:hover:not(:disabled) { background: var(--emergencia-hover); }
 
 .form-group.hidden-field { display: none; }
+.profile-hidden,
+.profile-hidden-action { display: none !important; }

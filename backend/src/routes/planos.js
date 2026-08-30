@@ -299,6 +299,17 @@ router.post('/:tipo/:hoja', escrituras, async (req, res) => {
     const encabezados = await sheets.leerEncabezados(sheetId, hoja);
     storage.guardarEncabezados(tipo, hoja, encabezados);
 
+    const noPacienteHeader = encabezados.find(h => {
+      const normalizado = normalizarKey(h);
+      return normalizado.includes('NUMERO_PACIENTE') || normalizado.includes('NO_PACIENTE');
+    });
+    if (noPacienteHeader) {
+      const noPacienteKey = normalizarKey(noPacienteHeader);
+      if (!dataCompleta[noPacienteKey]) {
+        dataCompleta[noPacienteKey] = String((await sheets.getUltimoNumeroPaciente(sheetId, hoja)) + 1);
+      }
+    }
+
     const valores = encabezados.map(h => {
       const key = normalizarKey(h);
       return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
@@ -413,10 +424,9 @@ router.post('/:tipo/:hoja/guardar-batch', escrituras, async (req, res) => {
 
     if (colNoPaciente >= 0) {
       const numAsignado = String(ultimoNumero + 1);
+      const noPacienteKey = normalizarKey(encabezados[colNoPaciente]);
       filasParaGuardar.forEach(d => {
-        const keys = Object.keys(d);
-        const noKey = keys.find(k => k.includes('NO_PACIENTE') || k.includes('NUMERO_PACIENTE'));
-        if (noKey && !d[noKey]) d[noKey] = numAsignado;
+        if (!d[noPacienteKey]) d[noPacienteKey] = numAsignado;
       });
     }
 
