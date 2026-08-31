@@ -518,7 +518,9 @@ const FormBuilder = {
         }
         let listHtml = '';
         res.datos.forEach((item, idx) => {
-          const id = item.datos.IDENTIFICACION_BENEFICIARIO || item.datos.IDENTIFICACION_AFILIADO || '';
+          const id = item.datos.IDENTIFICACION_BENEFICIARIO ||
+            item.datos.CEDULA_DE_IDENTIDAD_DEL_BENEFICIARIO ||
+            item.datos.IDENTIFICACION_AFILIADO || '';
           const apell = item.datos.APELLIDOS_BENEFICIARIO || item.datos.APELLIDOS || '';
           const nombres = item.datos.NOMBRES || item.datos.NOMBRE || '';
           listHtml += `<div class="result-item" data-idx="${idx}">
@@ -552,16 +554,34 @@ const FormBuilder = {
     const formKeys = {};
     inputs.forEach(inp => { if (inp.name) formKeys[inp.name] = inp; });
 
+    const normalizar = key => Utils.normalizar(String(key || ''))
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
+
+    const encontrarCampo = dk => {
+      const origen = normalizar(dk);
+      let matchKey = Object.keys(formKeys).find(fk => normalizar(fk) === origen);
+      if (matchKey) return matchKey;
+
+      const esIdBeneficiario = origen.includes('BENEFICIARIO') &&
+        (origen.includes('IDENTIFICACION') || origen.includes('CEDULA'));
+      if (esIdBeneficiario) {
+        matchKey = Object.keys(formKeys).find(fk => {
+          const destino = normalizar(fk);
+          return destino.includes('BENEFICIARIO') &&
+            (destino.includes('IDENTIFICACION') || destino.includes('CEDULA'));
+        });
+      }
+      return matchKey || null;
+    };
+
     Object.keys(datos).forEach(dk => {
       const val = datos[dk];
       if (!val) return;
-      // find matching form field
-      const matchKey = Object.keys(formKeys).find(fk =>
-        fk === dk || fk.includes(dk) || dk.includes(fk)
-      );
+      const matchKey = encontrarCampo(dk);
       if (matchKey) {
         const el = formKeys[matchKey];
-        if (!el.disabled) el.value = val;
+        if (!el.disabled) el.value = el.type === 'date' ? Utils.toInputDate(val) : val;
       }
     });
 
