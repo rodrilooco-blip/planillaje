@@ -28,12 +28,14 @@ const FormBuilder = {
     { id: 'profesional', titulo: '3. Profesional responsable', campos: [
       { keywords: ['APELLIDO_Y_NOMBRE_DEL_PROFESIONAL', 'APELLIDOS_Y_NOMBRES_DEL_PROFESIONAL'] },
       { keywords: ['MEDICO'] },
+      { keywords: ['TIPO_DE_MEDICO'] },
     ]},
     { id: 'diagnostico', titulo: '4. Diagn\u00f3stico', campos: [
       { keywords: ['NO_PACIENTE', 'NUMERO_PACIENTE'] },
       { keywords: ['DIAGNOSTICO', 'PRINCIPAL'] },
       { keywords: ['TIPO_DIAGNOSTICO'] },
       { keywords: ['DIAGNOSTICO', 'SECUNDARIO'] },
+      { keywords: ['DEFINITIVO', 'PRESUNTIVO'] },
       { keywords: ['DG_S_1', 'DG_S - 1', 'DG. S - 1', 'DG_S_1'] },
       { keywords: ['DG_S_2', 'DG_S - 2', 'DG. S - 2', 'DG_S_2'] },
       { keywords: ['DG_S_3', 'DG_S - 3', 'DG. S - 3', 'DG_S_3'] },
@@ -49,13 +51,15 @@ const FormBuilder = {
       { keywords: ['CONTINGENCIA'] },
     ]},
     { id: 'accidente', titulo: 'Datos del Accidente (SPPAT)', campos: [
-      { keywords: ['ACCIDENTE'] },
-      { keywords: ['VEHICULO'] },
-      { keywords: ['PLACA'] },
-      { keywords: ['PROVINCIA'] },
-      { keywords: ['CANTON'] },
+      { keywords: ['FECHA_DEL_ACCIDENTE'] },
+      { keywords: ['HORA_DEL_ACCIDENTE'] },
+      { keywords: ['PROVINCIA_DEL_ACCIDENTE'] },
+      { keywords: ['CANTON_DEL_ACCIDENTE'] },
       { keywords: ['UNICODIGO'] },
-      { keywords: ['EVIDENCIA'] },
+      { keywords: ['TIPO_DE_VEHICULO'] },
+      { keywords: ['PLACA_DE_VEHICULO'] },
+      { keywords: ['NOMBRE_DEL_ARCHIVO_CON_EVIDENCIA_ACCIDENTE'] },
+      { keywords: ['NUMERO_DE_PAGINA_EN_ARCHIVO_EVIDENCIA_ACCIDENTE'] },
     ]},
     { id: 'cobertura', titulo: 'Cobertura', campos: [
       { keywords: ['COBERTURA'] },
@@ -80,11 +84,11 @@ const FormBuilder = {
   ],
 
   getKeySimple(str) {
-    return str.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
+    return Utils.normalizar(str).toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
   },
 
   normalizarPatronKeyword(str) {
-    return str.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
+    return Utils.normalizar(str).toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
   },
 
   encontrarColumna(columnas, patrones, usadas) {
@@ -127,7 +131,7 @@ const FormBuilder = {
 
   getKey(nombre) {
     const limpio = this.limpiarNombreColumna(nombre);
-    return limpio.toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
+    return Utils.normalizar(limpio).toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
   },
 
   async build(tipo, hoja, editFila) {
@@ -197,8 +201,9 @@ const FormBuilder = {
     if (restantes.length > 0) {
       let restHtml = '';
       for (const col of restantes) {
+        const key = this.getKey(col.nombre);
+        if (this.fieldMap[key]) continue;
         if (this.esCampoRepetible(col.nombre)) {
-          const key = this.getKey(col.nombre);
           const labelText = this.formatearLabel(col.nombre);
           this.camposRepetibles.push({ key, labelText, nombre: col.nombre });
         } else {
@@ -270,8 +275,10 @@ const FormBuilder = {
 
     if (this.esCampoBloqueado(nombre)) {
       inputHtml = `<input type="text" id="f-${key}" name="${key}" value="${this.getValorFijo(nombre)}" disabled>`;
+    } else if (this.esCampoHora(nombre)) {
+      inputHtml = `<input type="time" id="f-${key}" name="${key}" placeholder="${labelText}">`;
     } else if (this.esCampoFecha(nombre)) {
-      const val = Utils.getFechaHoy();
+      const val = this.esFechaAtencionOIngreso(nombre) ? Utils.getFechaHoy() : '';
       inputHtml = `<input type="date" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
     } else if (esDependencia) {
       inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="dependencia" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="Buscar código o dependencia..."></div>`;
@@ -280,6 +287,8 @@ const FormBuilder = {
       const esParentesco = nSel.includes('PARENTESCO');
       const esCanton = nSel.includes('CANTON') || nSel.includes('CANT\u00d3N');
       const esVehiculo = (nSel.includes('VEHICULO') || nSel.includes('VEH\u00cdCULO')) && nSel.includes('TIPO');
+      const esTipoMedico = nSel.includes('TIPO') && nSel.includes('MEDICO');
+      const esTipoDiagnostico = nSel.includes('DEFINITIVO') && nSel.includes('PRESUNTIVO');
       let optionsHtml;
       if (esParentesco) {
         optionsHtml = [
@@ -313,6 +322,26 @@ const FormBuilder = {
           '<option value="H">H = Volqueta</option>',
           '<option value="Z">Z = Desconocido</option>',
         ].join('');
+      } else if (esTipoMedico) {
+        optionsHtml = [
+          '<option value="">Seleccione profesional...</option>',
+          '<option value="1">1 = Cirujano principal</option>',
+          '<option value="2">2 = Segundo cirujano</option>',
+          '<option value="3">3 = Primer ayudante</option>',
+          '<option value="4">4 = Segundo ayudante</option>',
+          '<option value="5">5 = Tercer ayudante</option>',
+          '<option value="6">6 = Anestesi\u00f3logo uno</option>',
+          '<option value="7">7 = Anestesi\u00f3logo dos</option>',
+          '<option value="8">8 = M\u00e9dico tratante con especialidad cl\u00ednica</option>',
+          '<option value="9">9 = Otro profesional no m\u00e9dico</option>',
+          '<option value="10">10 = M\u00e9dico interconsultado</option>',
+          '<option value="11">11 = Perfusionista</option>',
+        ].join('');
+      } else if (esTipoDiagnostico) {
+        optionsHtml = [
+          '<option value="D">D = Definitivo</option>',
+          '<option value="P">P = Presuntivo</option>',
+        ].join('');
       } else if (nSel === 'SEXO') {
         optionsHtml = [
           '<option value="">Seleccione...</option>',
@@ -330,7 +359,7 @@ const FormBuilder = {
           '<option value="6">6 = Accidente de Tránsito</option>',
           '<option value="7">7 = Enfermedad Catastrófica</option>',
         ].join('');
-      } else if (nSel.includes('MOTIVO EGRESO') || nSel.includes('MOTIVO_EGRESO')) {
+      } else if (nSel.includes('MOTIVO') && nSel.includes('EGRESO')) {
         optionsHtml = [
           '<option value="">Seleccione...</option>',
           '<option value="1">1 = Alta Médica</option>',
@@ -339,7 +368,7 @@ const FormBuilder = {
           '<option value="4">4 = Alta Voluntaria</option>',
           '<option value="5">5 = Larga estancia o no hay egreso al cierre del mes</option>',
         ].join('');
-      } else if (nSel.includes('TIPO PRESTACION') || nSel.includes('TIPO_PRESTACION')) {
+      } else if (nSel.includes('TIPO') && nSel.includes('PRESTACION')) {
         optionsHtml = [
           '<option value="">Seleccione...</option>',
           '<option value="P">P = Procedimiento Tarifario</option>',
@@ -417,7 +446,8 @@ const FormBuilder = {
     document.querySelectorAll('#formFields .profile-hidden').forEach(el => el.classList.remove('profile-hidden'));
     document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
 
-    const esCampoVisible = key => {
+    const esSPPAT = (this.currentHoja || '').toUpperCase().startsWith('SPPAT');
+    const esCampoVisibleBase = key => {
       const k = key.toUpperCase();
       return k.includes('DEPENDENCIA') ||
         k.includes('TIPO_BENEFICIARIO') ||
@@ -429,7 +459,9 @@ const FormBuilder = {
         k.includes('PARENTESCO') ||
         (k.includes('IDENTIFICACION') && (k.includes('AFILIADO') || k.includes('TITULAR'))) ||
         (k.includes('APELLIDOS') && k.includes('NOMBRES') && k.includes('TITULAR')) ||
-        (k.includes('FECHA') && (k.includes('ATENCION') || k.includes('INGRESO'))) ||
+        (this.currentTipo === 'emergencia'
+          ? (k.includes('FECHA') && k.includes('ATENCION'))
+          : (k.includes('FECHA') && k.includes('INGRESO'))) ||
         (k.includes('APELLIDO') && k.includes('NOMBRE') && k.includes('PROFESIONAL')) ||
         k.includes('MEDICO') ||
         (k.includes('DIAGNOSTICO') && k.includes('PRINCIPAL')) ||
@@ -437,9 +469,34 @@ const FormBuilder = {
         k.includes('UNIDAD_OPERATIVA');
     };
 
+    const esCampoVisibleSPPAT = key => {
+      const k = key.toUpperCase();
+      return esCampoVisibleBase(k) ||
+        (k.includes('TIPO') && k.includes('MEDICO')) ||
+        k.includes('CODIGO_DE_DERIVACION') ||
+        k.includes('CONTINGENCIA') ||
+        (k.includes('DEFINITIVO') && k.includes('PRESUNTIVO')) ||
+        (k.includes('MOTIVO') && k.includes('EGRESO')) ||
+        (k.includes('TIPO') && k.includes('COBERTURA')) ||
+        (k.includes('TIPO') && k.includes('PRESTACION')) ||
+        (k.includes('FECHA') && k.includes('ACCIDENTE')) ||
+        (k.includes('HORA') && k.includes('ACCIDENTE')) ||
+        (k.includes('PROVINCIA') && k.includes('ACCIDENTE')) ||
+        (k.includes('CANTON') && k.includes('ACCIDENTE')) ||
+        k.includes('UNICODIGO') ||
+        (k.includes('TIPO') && k.includes('VEHICULO')) ||
+        (k.includes('PLACA') && k.includes('VEHICULO')) ||
+        (k.includes('ARCHIVO') && k.includes('EVIDENCIA')) ||
+        (k.includes('PAGINA') && k.includes('EVIDENCIA')) ||
+        k.includes('MARCA_FINAL');
+    };
+
+    const esCampoVisible = key => esSPPAT ? esCampoVisibleSPPAT(key) : esCampoVisibleBase(key);
+
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
       if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
+      if (esSPPAT && input?.name && esCampoVisible(input.name)) group.classList.remove('hidden-field');
     });
 
     document.querySelectorAll('#formFields .form-section').forEach(section => {
@@ -458,8 +515,10 @@ const FormBuilder = {
     return n.includes('DEPENDENCIA') || n.includes('PARENTESCO') ||
            n.includes('CANTON') || n.includes('CANTÓN') || esVehiculo ||
            n === 'SEXO' || n.includes('CONTINGENCIA') ||
-           n.includes('MOTIVO EGRESO') || n.includes('MOTIVO_EGRESO') ||
-           n.includes('TIPO PRESTACION') || n.includes('TIPO_PRESTACION');
+           (n.includes('TIPO') && n.includes('MEDICO')) ||
+           (n.includes('DEFINITIVO') && n.includes('PRESUNTIVO')) ||
+           (n.includes('MOTIVO') && n.includes('EGRESO')) ||
+           (n.includes('TIPO') && n.includes('PRESTACION'));
   },
 
   async cargarSelectDependencia() {
@@ -623,6 +682,16 @@ const FormBuilder = {
     return this.limpiarNombreColumna(nombre).toUpperCase().includes('FECHA');
   },
 
+  esFechaAtencionOIngreso(nombre) {
+    const n = this.limpiarNombreColumna(nombre).toUpperCase();
+    return n.includes('FECHA') && (n.includes('ATENCION') || n.includes('INGRESO'));
+  },
+
+  esCampoHora(nombre) {
+    const n = this.limpiarNombreColumna(nombre).toUpperCase();
+    return n.includes('HORA') && n.includes('ACCIDENTE');
+  },
+
   esFechaIngreso(nombre) {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     return n.includes('FECHA') && (n.includes('INGRESO') || n.includes('EGRESO'));
@@ -632,7 +701,7 @@ const FormBuilder = {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     if (n.includes('MARCA FINAL') || n.includes('UNIDAD OPERATIVA')) return true;
     if (n.includes('PROVINCIA') || n.includes('UNICODIGO') || n.includes('PAGINA') || n.includes('PÁGINA') || n.includes('ARCHIVO')) return true;
-    if (n.includes('TIPO COBERTURA') || n.includes('TIPO_COBERTURA')) return true;
+    if (n.includes('TIPO') && n.includes('COBERTURA')) return true;
     return false;
   },
 
@@ -680,7 +749,7 @@ const FormBuilder = {
     if (n.includes('UNICODIGO')) return '471';
     if (n.includes('PAGINA') || n.includes('PÁGINA')) return '1';
     if (n.includes('ARCHIVO')) return 'HCU_008_';
-    if (n.includes('TIPO COBERTURA') || n.includes('TIPO_COBERTURA')) return 'SPPAT';
+    if (n.includes('TIPO') && n.includes('COBERTURA')) return 'SPPAT';
     return '';
   },
 

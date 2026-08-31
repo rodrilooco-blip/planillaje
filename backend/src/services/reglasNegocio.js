@@ -57,6 +57,15 @@ function aplicarReglasFijas(hoja, data) {
 
     const pagKey = buscarKey(r, 'PAGINA');
     if (pagKey) r[pagKey] = '1';
+
+    const derivacionKey = buscarKeys(r, 'CODIGO', 'DERIVACION');
+    if (derivacionKey) r[derivacionKey] = 'SIN';
+
+    const placaKey = buscarKeys(r, 'PLACA', 'VEHICULO');
+    if (placaKey && !r[placaKey]) r[placaKey] = '0000000';
+
+    const coberturaKey = buscarKeys(r, 'TIPO', 'COBERTURA');
+    if (coberturaKey) r[coberturaKey] = 'SPPAT';
   }
 
   const parentescoKey = buscarKey(r, 'PARENTESCO');
@@ -86,7 +95,7 @@ function aplicarReglasFijas(hoja, data) {
   const contKey = buscarKey(r, 'CONTINGENCIA');
   if (contKey) r[contKey] = esHojaSPPAT(hojaUp) ? '6' : '1';
   const dgKey = buscarKeys(r, 'DEFINITIVO', 'PRESUNTIVO') || buscarKey(r, 'DEFINITIVO');
-  if (dgKey) r[dgKey] = 'D';
+  if (dgKey && !r[dgKey]) r[dgKey] = 'D';
 
   Object.keys(r).forEach(k => {
     if (typeof r[k] === 'string') r[k] = r[k].toUpperCase();
@@ -98,6 +107,7 @@ function aplicarReglasFijas(hoja, data) {
 function validarData(data) {
   const errores = [];
   const idKey = buscarKeys(data, 'IDENTIFICACION', 'BENEFICIARIO') ||
+    buscarKeys(data, 'CEDULA', 'BENEFICIARIO') ||
     buscarKeys(data, 'IDENTIFICACION', 'AFILIADO') ||
     buscarKeys(data, 'IDENTIFICACION', 'TITULAR') ||
     buscarKey(data, 'IDENTIFICACION');

@@ -93,6 +93,19 @@ const Reglas = {
       this.setValue('UNICODIGO', '471');
       this.setValue('ARCHIVO', 'HCU_008_');
       this.setValue('PAGINA', '1');
+      this.setValue('MARCA_FINAL', 'F');
+      const tipoCobertura = Object.keys(this.fieldMap).find(k => k.includes('TIPO') && k.includes('COBERTURA'));
+      if (tipoCobertura) {
+        this.fieldMap[tipoCobertura].value = 'SPPAT';
+        this.fieldMap[tipoCobertura].disabled = true;
+      }
+
+      const codigoDerivacion = Object.keys(this.fieldMap).find(k => k.includes('CODIGO') && k.includes('DERIVACION'));
+      if (codigoDerivacion) this.fieldMap[codigoDerivacion].value = 'SIN';
+      const placa = Object.keys(this.fieldMap).find(k => k.includes('PLACA') && k.includes('VEHICULO'));
+      if (placa && !this.fieldMap[placa].value) this.fieldMap[placa].value = '0000000';
+
+      [contKey, codigoDerivacion].filter(Boolean).forEach(k => { this.fieldMap[k].disabled = true; });
     }
   },
 };
