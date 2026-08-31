@@ -255,7 +255,7 @@ const FormBuilder = {
     this.setupSubmitHandler(editFila);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
     this.aplicarPerfilHoja();
-    this.agruparCamposAutomaticosSPPAT();
+    this.agruparCamposAutomaticos();
     this.configurarSeccionesPlegables();
     document.getElementById('buscadorPacientes')?.remove();
     if (this.currentTipo === 'hospitalizacion' && !editFila) {
@@ -447,7 +447,8 @@ const FormBuilder = {
     document.querySelectorAll('#formFields .profile-hidden').forEach(el => el.classList.remove('profile-hidden'));
     document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
 
-    const esSPPAT = (this.currentHoja || '').toUpperCase().startsWith('SPPAT');
+    const hojaUp = (this.currentHoja || '').toUpperCase();
+    const esPerfilEditableCompleto = hojaUp.startsWith('SPPAT') || hojaUp.startsWith('ISSPOL');
     const esCampoVisibleBase = key => {
       const k = key.toUpperCase();
       return k.includes('DEPENDENCIA') ||
@@ -470,34 +471,12 @@ const FormBuilder = {
         k.includes('UNIDAD_OPERATIVA');
     };
 
-    const esCampoVisibleSPPAT = key => {
-      const k = key.toUpperCase();
-      return esCampoVisibleBase(k) ||
-        (k.includes('TIPO') && k.includes('MEDICO')) ||
-        k.includes('CODIGO_DE_DERIVACION') ||
-        k.includes('CONTINGENCIA') ||
-        (k.includes('DEFINITIVO') && k.includes('PRESUNTIVO')) ||
-        (k.includes('MOTIVO') && k.includes('EGRESO')) ||
-        (k.includes('TIPO') && k.includes('COBERTURA')) ||
-        (k.includes('TIPO') && k.includes('PRESTACION')) ||
-        (k.includes('FECHA') && k.includes('ACCIDENTE')) ||
-        (k.includes('HORA') && k.includes('ACCIDENTE')) ||
-        (k.includes('PROVINCIA') && k.includes('ACCIDENTE')) ||
-        (k.includes('CANTON') && k.includes('ACCIDENTE')) ||
-        k.includes('UNICODIGO') ||
-        (k.includes('TIPO') && k.includes('VEHICULO')) ||
-        (k.includes('PLACA') && k.includes('VEHICULO')) ||
-        (k.includes('ARCHIVO') && k.includes('EVIDENCIA')) ||
-        (k.includes('PAGINA') && k.includes('EVIDENCIA')) ||
-        k.includes('MARCA_FINAL');
-    };
-
-    const esCampoVisible = key => esSPPAT ? true : esCampoVisibleBase(key);
+    const esCampoVisible = key => esPerfilEditableCompleto ? true : esCampoVisibleBase(key);
 
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
       if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
-      if (esSPPAT && input?.name && esCampoVisible(input.name)) group.classList.remove('hidden-field');
+      if (esPerfilEditableCompleto && input?.name && esCampoVisible(input.name)) group.classList.remove('hidden-field');
     });
 
     document.querySelectorAll('#formFields .form-section').forEach(section => {
@@ -510,8 +489,9 @@ const FormBuilder = {
     document.querySelector('.form-actions .shortcut-hint')?.classList.add('profile-hidden-action');
   },
 
-  agruparCamposAutomaticosSPPAT() {
-    if (!(this.currentHoja || '').toUpperCase().startsWith('SPPAT')) return;
+  agruparCamposAutomaticos() {
+    const hojaUp = (this.currentHoja || '').toUpperCase();
+    if (!hojaUp.startsWith('SPPAT') && !hojaUp.startsWith('ISSPOL')) return;
     const container = document.getElementById('formFields');
     if (!container) return;
 
@@ -690,7 +670,8 @@ const FormBuilder = {
   },
 
   configurarSeccionesPlegables() {
-    const esSPPAT = (this.currentHoja || '').toUpperCase().startsWith('SPPAT');
+    const hojaUp = (this.currentHoja || '').toUpperCase();
+    const esPerfilEditableCompleto = hojaUp.startsWith('SPPAT') || hojaUp.startsWith('ISSPOL');
     document.querySelectorAll('#formFields .form-section').forEach((section, index) => {
       const title = section.querySelector('.form-section-title');
       if (!title) return;
@@ -705,7 +686,7 @@ const FormBuilder = {
       const siempreVisibles = ['paciente', 'fechas', 'profesional', 'diagnostico'];
       if (section.dataset.section === 'automaticos') {
         section.classList.add('collapsed');
-      } else if (esSPPAT) {
+      } else if (esPerfilEditableCompleto) {
         section.classList.remove('collapsed');
       } else if (!siempreVisibles.includes(section.dataset.section) && !section.querySelector('#itemsTable')) {
         section.classList.add('collapsed');

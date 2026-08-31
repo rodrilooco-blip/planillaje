@@ -76,7 +76,10 @@ const Reglas = {
     if (mf) { mf.value = 'F'; mf.disabled = true; }
 
     const secKey = Object.keys(this.fieldMap).find(k => k.includes('SECUENCIAL') && k.includes('DERIVACION'));
-    if (secKey) this.fieldMap[secKey].value = 'SIN';
+    if (secKey) {
+      this.fieldMap[secKey].value = 'SIN';
+      this.fieldMap[secKey].disabled = true;
+    }
 
     const contKey = Object.keys(this.fieldMap).find(k => k.includes('CONTINGENCIA'));
     if (contKey) this.fieldMap[contKey].value = (hoja || '').toUpperCase().startsWith('SPPAT') ? '6' : '1';
