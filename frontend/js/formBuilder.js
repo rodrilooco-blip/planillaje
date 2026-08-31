@@ -448,7 +448,7 @@ const FormBuilder = {
     document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
 
     const hojaUp = (this.currentHoja || '').toUpperCase();
-    const esPerfilEditableCompleto = hojaUp.startsWith('SPPAT') || hojaUp.startsWith('ISSPOL');
+    const esPerfilEditableCompleto = ['SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
     const esCampoVisibleBase = key => {
       const k = key.toUpperCase();
       return k.includes('DEPENDENCIA') ||
@@ -491,7 +491,7 @@ const FormBuilder = {
 
   agruparCamposAutomaticos() {
     const hojaUp = (this.currentHoja || '').toUpperCase();
-    if (!hojaUp.startsWith('SPPAT') && !hojaUp.startsWith('ISSPOL')) return;
+    if (!['SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo))) return;
     const container = document.getElementById('formFields');
     if (!container) return;
 
@@ -671,7 +671,7 @@ const FormBuilder = {
 
   configurarSeccionesPlegables() {
     const hojaUp = (this.currentHoja || '').toUpperCase();
-    const esPerfilEditableCompleto = hojaUp.startsWith('SPPAT') || hojaUp.startsWith('ISSPOL');
+    const esPerfilEditableCompleto = ['SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
     document.querySelectorAll('#formFields .form-section').forEach((section, index) => {
       const title = section.querySelector('.form-section-title');
       if (!title) return;
