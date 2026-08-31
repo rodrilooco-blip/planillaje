@@ -255,6 +255,7 @@ const FormBuilder = {
     this.setupSubmitHandler(editFila);
     this.aplicarVisibilidadMedico(App.userType === 'medico');
     this.aplicarPerfilHoja();
+    this.agruparCamposAutomaticosSPPAT();
     this.configurarSeccionesPlegables();
     document.getElementById('buscadorPacientes')?.remove();
     if (this.currentTipo === 'hospitalizacion' && !editFila) {
@@ -491,7 +492,7 @@ const FormBuilder = {
         k.includes('MARCA_FINAL');
     };
 
-    const esCampoVisible = key => esSPPAT ? esCampoVisibleSPPAT(key) : esCampoVisibleBase(key);
+    const esCampoVisible = key => esSPPAT ? true : esCampoVisibleBase(key);
 
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
@@ -507,6 +508,46 @@ const FormBuilder = {
     document.getElementById('btnGuardar')?.classList.add('profile-hidden-action');
     document.getElementById('btnLimpiar')?.classList.add('profile-hidden-action');
     document.querySelector('.form-actions .shortcut-hint')?.classList.add('profile-hidden-action');
+  },
+
+  agruparCamposAutomaticosSPPAT() {
+    if (!(this.currentHoja || '').toUpperCase().startsWith('SPPAT')) return;
+    const container = document.getElementById('formFields');
+    if (!container) return;
+
+    const esNumeroPaciente = key => {
+      const k = key.toUpperCase();
+      return k.includes('NMERO_PACIENTE') || k.includes('NUMERO_PACIENTE') || k.includes('NO_PACIENTE');
+    };
+
+    const grupos = [...container.querySelectorAll('.form-group')].filter(group => {
+      const input = group.querySelector('input, select, textarea');
+      return input && (input.disabled || esNumeroPaciente(input.name || ''));
+    });
+    if (!grupos.length) return;
+
+    const section = document.createElement('div');
+    section.className = 'form-section collapsed automatic-fields-section';
+    section.dataset.section = 'automaticos';
+    section.innerHTML = `
+      <div class="form-section-title">Datos automáticos <span class="section-help">(se completan solos)</span></div>
+      <div class="form-grid"></div>`;
+    const grid = section.querySelector('.form-grid');
+
+    grupos.forEach(group => {
+      group.classList.remove('profile-hidden', 'hidden-field');
+      grid.appendChild(group);
+    });
+
+    const itemsSection = container.querySelector('.form-section:has(#itemsTable)');
+    if (itemsSection) container.insertBefore(section, itemsSection);
+    else container.appendChild(section);
+
+    container.querySelectorAll('.form-section:not(.automatic-fields-section)').forEach(original => {
+      if (!original.querySelector('.form-group') && !original.querySelector('#itemsTable')) {
+        original.classList.add('profile-hidden');
+      }
+    });
   },
 
   esCampoSelect(nombre) {
@@ -649,6 +690,7 @@ const FormBuilder = {
   },
 
   configurarSeccionesPlegables() {
+    const esSPPAT = (this.currentHoja || '').toUpperCase().startsWith('SPPAT');
     document.querySelectorAll('#formFields .form-section').forEach((section, index) => {
       const title = section.querySelector('.form-section-title');
       if (!title) return;
@@ -661,7 +703,11 @@ const FormBuilder = {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
       });
       const siempreVisibles = ['paciente', 'fechas', 'profesional', 'diagnostico'];
-      if (!siempreVisibles.includes(section.dataset.section) && !section.querySelector('#itemsTable')) {
+      if (section.dataset.section === 'automaticos') {
+        section.classList.add('collapsed');
+      } else if (esSPPAT) {
+        section.classList.remove('collapsed');
+      } else if (!siempreVisibles.includes(section.dataset.section) && !section.querySelector('#itemsTable')) {
         section.classList.add('collapsed');
       }
     });
