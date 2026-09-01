@@ -94,15 +94,22 @@ function buscar(nombreCatalogo, query, limite = 5) {
   const datos = cache.get(key);
   if (!datos || !query) return [];
 
-  const q = query.toLowerCase();
+  const normalizar = valor => String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+  const terminos = normalizar(query).split(' ').filter(Boolean);
   const resultados = [];
 
   for (let i = 0; i < datos.length; i++) {
     if (resultados.length >= limite) break;
     const item = datos[i];
-    const codigo = (item.codigo || item.cod || item.código || '').toLowerCase();
-    const descripcion = (item.descripcion || item.descripción || item.nombre || item.desc || '').toLowerCase();
-    if (codigo.includes(q) || descripcion.includes(q)) {
+    const codigo = item.codigo || item.cod || item.código || '';
+    const descripcion = item.descripcion || item.descripción || item.nombre || item.desc || '';
+    const texto = normalizar(`${codigo} ${descripcion}`);
+    if (terminos.every(termino => texto.includes(termino))) {
       resultados.push(item);
     }
   }

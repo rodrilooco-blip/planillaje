@@ -34,6 +34,24 @@ class Trie {
 
 const catalogosLocal = {};
 const tries = {};
+const indicesBusqueda = {};
+
+function normalizarBusqueda(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function crearIndiceBusqueda(items) {
+  return items.map(item => {
+    const codigo = item.codigo || item.cod || item.código || '';
+    const descripcion = item.descripcion || item.descripción || item.nombre || item.desc || '';
+    return { item, texto: normalizarBusqueda(`${codigo} ${descripcion}`) };
+  });
+}
 
 const Autocomplete = {
   dropdown: null,
@@ -58,6 +76,7 @@ const Autocomplete = {
   limpiarCache() {
     Object.keys(catalogosLocal).forEach(key => delete catalogosLocal[key]);
     Object.keys(tries).forEach(key => delete tries[key]);
+    Object.keys(indicesBusqueda).forEach(key => delete indicesBusqueda[key]);
     this.cerrar();
   },
 
@@ -78,10 +97,12 @@ const Autocomplete = {
           }
         }
       }
-      // Build combined Trie
+      // Build combined catalog and search index
       const trie = new Trie();
+      const combinados = [];
       for (const n of nombres) {
         for (const item of catalogosLocal[n]) {
+          combinados.push(item);
           const codigo = (item.codigo || item.cod || item.código || '').toLowerCase();
           const descripcion = (item.descripcion || item.descripción || item.nombre || item.desc || '').toLowerCase();
           if (codigo) trie.insertar(codigo, item);
@@ -92,7 +113,8 @@ const Autocomplete = {
         }
       }
       tries[nombre] = trie;
-      catalogosLocal[nombre] = []; // marker that combined name is loaded
+      catalogosLocal[nombre] = combinados;
+      indicesBusqueda[nombre] = crearIndiceBusqueda(combinados);
       return;
     }
 
@@ -111,6 +133,7 @@ const Autocomplete = {
         }
       }
       tries[nombre] = trie;
+      indicesBusqueda[nombre] = crearIndiceBusqueda(catalogosLocal[nombre]);
     } catch (err) {
       console.error('Error cargando cat\u00e1logo:', err);
     }
@@ -165,18 +188,12 @@ const Autocomplete = {
       return;
     }
 
-    const trie = tries[catalogo];
-    let resultados;
-    if (trie) {
-      resultados = trie.buscar(q);
-    } else {
-      resultados = catalogosLocal[catalogo]
-        .filter(item => {
-          const c = (item.codigo || item.cod || item.código || '').toLowerCase();
-          const d = (item.descripcion || item.descripción || item.nombre || item.desc || '').toLowerCase();
-          return c.includes(q.toLowerCase()) || d.includes(q.toLowerCase());
-        });
-    }
+    const terminos = normalizarBusqueda(q).split(' ').filter(Boolean);
+    const indice = indicesBusqueda[catalogo] || crearIndiceBusqueda(catalogosLocal[catalogo]);
+    const resultados = indice
+      .filter(entrada => terminos.every(termino => entrada.texto.includes(termino)))
+      .slice(0, 20)
+      .map(entrada => entrada.item);
 
     if (!resultados.length) {
       this.dropdown.style.display = 'none';
