@@ -7,6 +7,7 @@ const FormBuilder = {
     { id: 'paciente', titulo: '1. Datos del Paciente', campos: [
       { keywords: ['DEPENDENCIA'] },
       { keywords: ['TIPO_BENEFICIARIO'] },
+      { keywords: ['PORCENTAJE'], exact: true },
       { keywords: ['IDENTIFICACION', 'BENEFICIARIO'] },
       { keywords: ['APELLIDOS', 'BENEFICIARIO'] },
       { keywords: ['SEXO'] },
@@ -69,7 +70,7 @@ const FormBuilder = {
     ]},
     { id: 'otros', titulo: '7. Otros Datos', campos: [
       { keywords: ['DURACION'] },
-      { keywords: ['PORCENTAJE', 'IVA'] },
+      { keywords: ['PORCENTAJE_IVA'] },
       { keywords: ['VALOR', 'IVA'] },
       { keywords: ['VALOR_UNITARIO'] },
       { keywords: ['VALOR_TOTAL'] },
@@ -91,13 +92,13 @@ const FormBuilder = {
     return Utils.normalizar(str).toUpperCase().trim().replace(/\s+/g, '_').replace(/\./g, '').replace(/[^A-Z0-9_]/g, '');
   },
 
-  encontrarColumna(columnas, patrones, usadas) {
+  encontrarColumna(columnas, patrones, usadas, exact = false) {
     for (const col of columnas) {
       if (usadas.has(col)) continue;
       const key = this.getKey(col.nombre);
       for (const patron of patrones) {
         const p = this.normalizarPatronKeyword(patron);
-        if (key.includes(p)) return col;
+        if (exact ? key === p : key.includes(p)) return col;
       }
     }
     return null;
@@ -116,6 +117,10 @@ const FormBuilder = {
   },
 
   formatearLabel(nombre) {
+    const normalizado = Utils.normalizar(nombre || '').toUpperCase();
+    if (normalizado.includes('PORCENTAJE') && normalizado.includes('CORE SALUD')) {
+      return 'Porcentaje de afiliación (Core Salud)';
+    }
     const limpio = this.limpiarNombreColumna(nombre);
     return limpio
       .replace(/_/g, ' ')
@@ -185,7 +190,7 @@ const FormBuilder = {
 
       let seccionHtml = '';
       for (const campo of seccion.campos) {
-        const col = this.encontrarColumna(columnas, campo.keywords, usadas);
+        const col = this.encontrarColumna(columnas, campo.keywords, usadas, campo.exact);
         if (!col) continue;
         usadas.add(col);
         seccionHtml += this.renderCampoUnico(col);
@@ -386,7 +391,10 @@ const FormBuilder = {
       const catalogo = this.getCatalogoNombre(nombre);
       inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="${catalogo}" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="${labelText}"></div>`;
     } else if (this.esCampoNumero(nombre)) {
-      inputHtml = `<input type="number" id="f-${key}" name="${key}" value="" placeholder="${labelText}">`;
+      const esPorcentajeAfiliacion = Utils.normalizar(nombre).toUpperCase().includes('PORCENTAJE') &&
+        Utils.normalizar(nombre).toUpperCase().includes('CORE SALUD');
+      const limites = esPorcentajeAfiliacion ? ' min="0" max="100" step="0.01"' : '';
+      inputHtml = `<input type="number" id="f-${key}" name="${key}" value=""${limites} placeholder="${labelText}">`;
     } else {
       inputHtml = `<input type="text" id="f-${key}" name="${key}" placeholder="${labelText}">`;
     }
