@@ -32,6 +32,14 @@ function esHojaSPPAT(nombreHoja) {
   return nombreHoja.toUpperCase().startsWith('SPPAT');
 }
 
+function esHojaISSPOL(nombreHoja) {
+  return nombreHoja.toUpperCase().startsWith('ISSPOL');
+}
+
+function esHojaAccidente(nombreHoja) {
+  return esHojaSPPAT(nombreHoja) || esHojaISSPOL(nombreHoja);
+}
+
 function aplicarReglasFijas(hoja, data) {
   const r = { ...data };
   const hojaUp = hoja.toUpperCase();
@@ -39,7 +47,7 @@ function aplicarReglasFijas(hoja, data) {
   r['MARCA_FINAL'] = 'F';
   r['UNIDAD_OPERATIVA'] = 'HOSPITAL MIGUEL LEON BERMEO CHUNCHI';
 
-  if (esHojaSPPAT(hojaUp)) {
+  if (esHojaAccidente(hojaUp)) {
     const depKey = buscarKey(r, 'DEPENDENCIA');
     if (depKey) r[depKey] = '9999999998';
 
@@ -66,6 +74,13 @@ function aplicarReglasFijas(hoja, data) {
 
     const coberturaKey = buscarKeys(r, 'TIPO', 'COBERTURA');
     if (coberturaKey) r[coberturaKey] = 'SPPAT';
+
+    const coberturaCompartidaKey = buscarKeys(r, 'COBERTURA', 'COMPARTIDA');
+    if (coberturaCompartidaKey) r[coberturaCompartidaKey] = 'NO';
+
+    const parentescoKey = buscarKey(r, 'PARENTESCO');
+    if (parentescoKey) r[parentescoKey] = 'T';
+
   }
 
   const parentescoKey = buscarKey(r, 'PARENTESCO');
@@ -91,9 +106,9 @@ function aplicarReglasFijas(hoja, data) {
   }
 
   const secKey = buscarKeys(r, 'SECUENCIAL', 'DERIVACION');
-  if (secKey) r[secKey] = 'SIN';
+  if (secKey && !esHojaISSPOL(hojaUp)) r[secKey] = 'SIN';
   const contKey = buscarKey(r, 'CONTINGENCIA');
-  if (contKey) r[contKey] = esHojaSPPAT(hojaUp) ? '6' : '1';
+  if (contKey) r[contKey] = esHojaAccidente(hojaUp) ? '6' : '1';
   const dgKey = buscarKeys(r, 'DEFINITIVO', 'PRESUNTIVO') || buscarKey(r, 'DEFINITIVO');
   if (dgKey && !r[dgKey]) r[dgKey] = 'D';
 
@@ -122,11 +137,8 @@ function validarData(data) {
 function obtenerColumnasAdicionales(hoja) {
   const hojaUp = hoja.toUpperCase();
   const extras = [];
-  if (hojaUp.startsWith('SPPAT')) {
+  if (hojaUp.startsWith('SPPAT') || hojaUp.startsWith('ISSPOL')) {
     extras.push('FECHA INGRESO', 'FECHA EGRESO', 'MOTIVO EGRESO', 'COBERTURA', 'TIPO PRESTACION', 'DATOS ACCIDENTE');
-  }
-  if (hojaUp.startsWith('ISSPOL')) {
-    extras.push('PORCENTAJE');
   }
   return extras;
 }

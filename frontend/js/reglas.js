@@ -70,24 +70,27 @@ const Reglas = {
   },
 
   aplicarValoresFijos(hoja) {
+    const hojaUp = (hoja || '').toUpperCase();
+    const esISSPOL = hojaUp.startsWith('ISSPOL');
+    const esHojaAccidente = hojaUp.startsWith('SPPAT') || esISSPOL;
     const uo = this.getField('UNIDAD_OPERATIVA');
     if (uo) { uo.value = 'HOSPITAL MIGUEL LEON BERMEO CHUNCHI'; uo.disabled = true; }
     const mf = this.getField('MARCA_FINAL');
     if (mf) { mf.value = 'F'; mf.disabled = true; }
 
     const secKey = Object.keys(this.fieldMap).find(k => k.includes('SECUENCIAL') && k.includes('DERIVACION'));
-    if (secKey) {
+    if (secKey && !esISSPOL) {
       this.fieldMap[secKey].value = 'SIN';
       this.fieldMap[secKey].disabled = true;
     }
 
     const contKey = Object.keys(this.fieldMap).find(k => k.includes('CONTINGENCIA'));
-    if (contKey) this.fieldMap[contKey].value = (hoja || '').toUpperCase().startsWith('SPPAT') ? '6' : '1';
+    if (contKey) this.fieldMap[contKey].value = esHojaAccidente ? '6' : '1';
 
     const dgKey = Object.keys(this.fieldMap).find(k => k.includes('DEFINITIVO') && k.includes('PRESUNTIVO'));
     if (dgKey) this.fieldMap[dgKey].value = 'D';
 
-    if (hoja.toUpperCase().startsWith('SPPAT')) {
+    if (esHojaAccidente) {
       this.setValue('DEPENDENCIA', '9999999998');
       this.setValue('TIPO_BENEFICIARIO', 'VA');
       const d = this.getField('DEPENDENCIA'); if (d) d.disabled = true;
@@ -97,6 +100,7 @@ const Reglas = {
       this.setValue('ARCHIVO', 'HCU_008_');
       this.setValue('PAGINA', '1');
       this.setValue('MARCA_FINAL', 'F');
+      this.setValue('PARENTESCO', 'T');
       const tipoCobertura = Object.keys(this.fieldMap).find(k => k.includes('TIPO') && k.includes('COBERTURA'));
       if (tipoCobertura) {
         this.fieldMap[tipoCobertura].value = 'SPPAT';
@@ -105,10 +109,15 @@ const Reglas = {
 
       const codigoDerivacion = Object.keys(this.fieldMap).find(k => k.includes('CODIGO') && k.includes('DERIVACION'));
       if (codigoDerivacion) this.fieldMap[codigoDerivacion].value = 'SIN';
+      const coberturaCompartida = Object.keys(this.fieldMap).find(k => k.includes('COBERTURA') && k.includes('COMPARTIDA'));
+      if (coberturaCompartida) this.fieldMap[coberturaCompartida].value = 'NO';
       const placa = Object.keys(this.fieldMap).find(k => k.includes('PLACA') && k.includes('VEHICULO'));
       if (placa && !this.fieldMap[placa].value) this.fieldMap[placa].value = '0000000';
 
-      [contKey, codigoDerivacion].filter(Boolean).forEach(k => { this.fieldMap[k].disabled = true; });
+      const parentesco = Object.keys(this.fieldMap).find(k => k.includes('PARENTESCO'));
+      [contKey, codigoDerivacion, coberturaCompartida, parentesco]
+        .filter(Boolean)
+        .forEach(k => { this.fieldMap[k].disabled = true; });
     }
   },
 };

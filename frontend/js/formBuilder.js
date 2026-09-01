@@ -51,7 +51,7 @@ const FormBuilder = {
       { keywords: ['SECUENCIAL', 'DERIVACION'] },
       { keywords: ['CONTINGENCIA'] },
     ]},
-    { id: 'accidente', titulo: 'Datos del Accidente (SPPAT)', campos: [
+    { id: 'accidente', titulo: 'Datos del Accidente', campos: [
       { keywords: ['FECHA_DEL_ACCIDENTE'] },
       { keywords: ['HORA_DEL_ACCIDENTE'] },
       { keywords: ['PROVINCIA_DEL_ACCIDENTE'] },
