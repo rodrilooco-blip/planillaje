@@ -14,6 +14,15 @@ const router = Router();
 
 const normalizarKey = storage.normalizarKey;
 
+function normalizarBusqueda(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 function getSpreadsheetId(tipo, codigo) {
   const t = tipo.toLowerCase();
   if (codigo) {
@@ -51,7 +60,7 @@ router.get('/buscar-pacientes', lecturas, async (req, res) => {
   const { q, mes } = req.query;
   if (!q || q.length < 3) return res.json({ datos: [] });
 
-  const query = q.toUpperCase().trim();
+  const terminos = normalizarBusqueda(q).split(' ').filter(Boolean);
   const emergSheetId = getSpreadsheetId('emergencia', mes);
   if (!emergSheetId) return res.status(400).json({ error: 'Emergencia no configurada' });
 
@@ -67,7 +76,8 @@ router.get('/buscar-pacientes', lecturas, async (req, res) => {
 
       const idIdx = encabezados.findIndex(h => {
         const k = normalizarKey(h);
-        return k.includes('IDENTIFICACION') && k.includes('BENEFICIARIO');
+        return k.includes('BENEFICIARIO') &&
+          (k.includes('IDENTIFICACION') || k.includes('CEDULA'));
       });
       const apeIdx = encabezados.findIndex(h => {
         const k = normalizarKey(h);
@@ -79,9 +89,10 @@ router.get('/buscar-pacientes', lecturas, async (req, res) => {
       for (let i = 1; i < filas.length; i++) {
         if (resultados.length >= max) break;
         const fila = filas[i];
-        const idVal = idIdx >= 0 ? (fila[idIdx] || '').toUpperCase() : '';
-        const apeVal = apeIdx >= 0 ? (fila[apeIdx] || '').toUpperCase() : '';
-        if (idVal.includes(query) || apeVal.includes(query)) {
+        const idVal = idIdx >= 0 ? fila[idIdx] || '' : '';
+        const apeVal = apeIdx >= 0 ? fila[apeIdx] || '' : '';
+        const textoBusqueda = normalizarBusqueda(`${idVal} ${apeVal}`);
+        if (terminos.every(termino => textoBusqueda.includes(termino))) {
           const obj = {};
           encabezados.forEach((h, idx) => { obj[normalizarKey(h)] = fila[idx] || ''; });
           resultados.push({ hoja: sheetHoja, datos: obj });
