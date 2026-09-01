@@ -145,7 +145,7 @@ const RecentTable = {
         if (input && !input.disabled) input.value = input.type === 'date' ? Utils.toInputDate(val) : val;
       }
 
-      if (tipo === 'hospitalizacion') {
+      if (document.getElementById('itemsTableBody')) {
         const clave = this.claveAtencion(res.datos);
         const grupo = clave
           ? this.registros.filter(reg => this.claveAtencion(reg.datos || {}) === clave)
