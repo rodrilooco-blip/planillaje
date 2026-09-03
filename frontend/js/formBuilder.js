@@ -9,6 +9,7 @@ const FormBuilder = {
       { keywords: ['TIPO_BENEFICIARIO'] },
       { keywords: ['PORCENTAJE'], exact: true },
       { keywords: ['IDENTIFICACION', 'BENEFICIARIO'] },
+      { keywords: ['CEDULA', 'BENEFICIARIO'] },
       { keywords: ['APELLIDOS', 'BENEFICIARIO'] },
       { keywords: ['SEXO'] },
       { keywords: ['FECHA_NACIMIENTO'] },
@@ -456,7 +457,7 @@ const FormBuilder = {
     document.querySelectorAll('.form-actions .profile-hidden-action').forEach(el => el.classList.remove('profile-hidden-action'));
 
     const hojaUp = (this.currentHoja || '').toUpperCase();
-    const esPerfilEditableCompleto = ['SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
+    const esPerfilEditableCompleto = ['IESS-G', 'IESS-C', 'SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
     const esCampoVisibleBase = key => {
       const k = key.toUpperCase();
       return k.includes('DEPENDENCIA') ||
@@ -492,9 +493,11 @@ const FormBuilder = {
       if (!tieneCamposVisibles && !section.querySelector('#itemsTable')) section.classList.add('profile-hidden');
     });
 
-    document.getElementById('btnGuardar')?.classList.add('profile-hidden-action');
-    document.getElementById('btnLimpiar')?.classList.add('profile-hidden-action');
-    document.querySelector('.form-actions .shortcut-hint')?.classList.add('profile-hidden-action');
+    if (!['IESS-G', 'IESS-C', 'SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo))) {
+      document.getElementById('btnGuardar')?.classList.add('profile-hidden-action');
+      document.getElementById('btnLimpiar')?.classList.add('profile-hidden-action');
+      document.querySelector('.form-actions .shortcut-hint')?.classList.add('profile-hidden-action');
+    }
   },
 
   agruparCamposAutomaticos() {
@@ -679,7 +682,7 @@ const FormBuilder = {
 
   configurarSeccionesPlegables() {
     const hojaUp = (this.currentHoja || '').toUpperCase();
-    const esPerfilEditableCompleto = ['SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
+    const esPerfilEditableCompleto = ['IESS-G', 'IESS-C', 'SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo));
     document.querySelectorAll('#formFields .form-section').forEach((section, index) => {
       const title = section.querySelector('.form-section-title');
       if (!title) return;
@@ -703,7 +706,7 @@ const FormBuilder = {
   },
 
   restaurarDatosPaciente(datos) {
-    const conservar = ['IDENTIFICACION', 'APELLIDOS', 'NOMBRES', 'SEXO', 'FECHA_NACIMIENTO',
+    const conservar = ['IDENTIFICACION', 'CEDULA', 'APELLIDOS', 'NOMBRES', 'SEXO', 'FECHA_NACIMIENTO',
       'EDAD', 'PARENTESCO', 'AFILIADO', 'TITULAR', 'BENEFICIARIO', 'DEPENDENCIA'];
     document.querySelectorAll('#formFields input, #formFields select, #formFields textarea').forEach(el => {
       if (!el.name || el.disabled || !conservar.some(k => el.name.includes(k))) return;
@@ -968,13 +971,22 @@ const FormBuilder = {
     const nombreKey = campos.find(c => c.key.includes('NOMBRE'))?.key || '';
     const cantidadKey = campos.find(c => c.key.includes('CANTIDAD'))?.key || '';
 
-    const colVisibility = [
+    const camposBase = [
       { key: fechaIngresoKey, label: 'Fecha', type: 'date' },
       { key: tipoExamenKey, label: 'Tipo Examen', type: 'catalogo', catalogo: 'tipoexamen', targetDesc: codigoKey },
       { key: codigoKey, label: 'C\u00f3digo', type: 'codigo-readonly' },
       { key: nombreKey, label: 'Nombre', type: 'nombre-buscable', catalogo: 'procedimientos,medicamentos', targetCode: codigoKey },
       { key: cantidadKey, label: 'Cantidad', type: 'number' },
     ].filter(c => c.key);
+    const keysBase = new Set(camposBase.map(c => c.key));
+    const camposAdicionales = campos
+      .filter(c => !keysBase.has(c.key))
+      .map(c => ({
+        key: c.key,
+        label: c.labelText,
+        type: this.esCampoNumero(c.nombre) ? 'number' : 'text',
+      }));
+    const colVisibility = [...camposBase, ...camposAdicionales];
 
     const thHtml = colVisibility.map(c => `<th>${c.label}</th>`).join('');
 
@@ -1043,6 +1055,10 @@ const FormBuilder = {
         const fechaGeneral = document.querySelector(`#formFields [name="${col.key}"]`)?.value;
         const fecha = filaAnterior || fechaGeneral || Utils.getFechaHoy();
         return `<td class="td-fecha"><input type="date" id="${id}" data-item-key="${col.key}" value="${fecha}" aria-label="Fecha del procedimiento o insumo"></td>`;
+      }
+
+      if (col.type === 'text') {
+        return `<td><input type="text" id="${id}" data-item-key="${col.key}" placeholder="${col.label}"></td>`;
       }
 
       return `<td><input type="text" id="${id}" data-item-key="${col.key}"></td>`;

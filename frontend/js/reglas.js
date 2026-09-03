@@ -28,8 +28,16 @@ const Reglas = {
     const nac = this.getValue('FECHA_NACIMIENTO');
     const ing = this.getValue('FECHA_INGRESO') || this.getValue('FECHA_ATENCION');
     if (!nac || !ing) return;
-    const a = new Date(nac), b = new Date(ing);
-    if (isNaN(a.getTime()) || isNaN(b.getTime())) return;
+    const convertirFecha = valor => {
+      const texto = String(valor || '').trim();
+      const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      const corta = texto.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+      if (iso) return new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      if (corta) return new Date(Number(corta[3]), Number(corta[2]) - 1, Number(corta[1]));
+      return null;
+    };
+    const a = convertirFecha(nac), b = convertirFecha(ing);
+    if (!a || !b || isNaN(a.getTime()) || isNaN(b.getTime())) return;
     let e = b.getFullYear() - a.getFullYear();
     if (b.getMonth() < a.getMonth() || (b.getMonth() === a.getMonth() && b.getDate() < a.getDate())) e--;
     this.setValue('EDAD', String(e));
@@ -40,8 +48,10 @@ const Reglas = {
     const fm = this.fieldMap;
 
     if (p === 'T' || p === 'TITULAR') {
-      const idBenKey = Object.keys(fm).find(k => k.includes('IDENTIFICACION') && k.includes('BENEFICIARIO'));
-      const idAfiKey = Object.keys(fm).find(k => k.includes('IDENTIFICACION') && (k.includes('AFILIADO') || k.includes('IDENTIFICACION')) && !k.includes('BENEFICIARIO'));
+      const esIdentificacion = k => k.includes('IDENTIFICACION') || k.includes('CEDULA');
+      const idBenKey = Object.keys(fm).find(k => esIdentificacion(k) && k.includes('BENEFICIARIO'));
+      const idAfiKey = Object.keys(fm).find(k => esIdentificacion(k) &&
+        (k.includes('AFILIADO') || k.includes('TITULAR')) && !k.includes('BENEFICIARIO'));
       if (idBenKey && idAfiKey) {
         fm[idAfiKey].value = fm[idBenKey].value;
         fm[idAfiKey].readOnly = true;
@@ -63,10 +73,20 @@ const Reglas = {
     const ing = this.getField('FECHA_INGRESO');
     const ate = this.getField('FECHA_ATENCION');
     const par = this.getField('PARENTESCO');
+    const idBenKey = Object.keys(this.fieldMap).find(k =>
+      (k.includes('IDENTIFICACION') || k.includes('CEDULA')) && k.includes('BENEFICIARIO')
+    );
+    const idBen = idBenKey ? this.fieldMap[idBenKey] : null;
     if (nac) { nac.addEventListener('change', () => this.calcularEdad()); nac.addEventListener('input', () => this.calcularEdad()); }
     if (ing) { ing.addEventListener('change', () => this.calcularEdad()); ing.addEventListener('input', () => this.calcularEdad()); }
     if (ate) { ate.addEventListener('change', () => this.calcularEdad()); ate.addEventListener('input', () => this.calcularEdad()); }
     if (par) par.addEventListener('change', () => this.copiarDatosTitular());
+    if (idBen) {
+      idBen.addEventListener('input', () => this.copiarDatosTitular());
+      idBen.addEventListener('change', () => this.copiarDatosTitular());
+    }
+    this.calcularEdad();
+    this.copiarDatosTitular();
   },
 
   aplicarValoresFijos(hoja) {

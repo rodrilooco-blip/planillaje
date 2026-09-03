@@ -87,8 +87,10 @@ function aplicarReglasFijas(hoja, data) {
   if (parentescoKey) {
     const pVal = (r[parentescoKey] || '').toUpperCase();
     if (pVal === 'T' || pVal === 'TITULAR') {
-      const identBenKey = buscarKeys(r, 'IDENTIFICACION', 'BENEFICIARIO');
-      const afiliadoKey = buscarKeys(r, 'IDENTIFICACION', 'AFILIADO') || buscarKeys(r, 'IDENTIFICACION', 'TITULAR');
+      const identBenKey = buscarKeys(r, 'IDENTIFICACION', 'BENEFICIARIO') || buscarKeys(r, 'CEDULA', 'BENEFICIARIO');
+      const afiliadoKey = buscarKeys(r, 'IDENTIFICACION', 'AFILIADO') ||
+        buscarKeys(r, 'IDENTIFICACION', 'TITULAR') ||
+        buscarKeys(r, 'CEDULA', 'AFILIADO') || buscarKeys(r, 'CEDULA', 'TITULAR');
       if (identBenKey && afiliadoKey) r[afiliadoKey] = r[identBenKey];
 
       const apellKey = buscarKeys(r, 'APELLIDOS', 'BENEFICIARIO') || buscarKey(r, 'APELLIDOS');
