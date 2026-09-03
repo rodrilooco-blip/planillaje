@@ -535,7 +535,9 @@ const FormBuilder = {
     });
 
     document.querySelectorAll('#formFields .form-section').forEach(section => {
-      const tieneCamposVisibles = [...section.querySelectorAll('.form-group')].some(group => !group.classList.contains('profile-hidden'));
+      const tieneCamposVisibles = [...section.querySelectorAll('.form-group')].some(group =>
+        !group.classList.contains('profile-hidden') && !group.classList.contains('hidden-field')
+      );
       if (!tieneCamposVisibles && !section.querySelector('#itemsTable')) section.classList.add('profile-hidden');
     });
 
@@ -592,7 +594,10 @@ const FormBuilder = {
     else container.appendChild(section);
 
     container.querySelectorAll('.form-section:not(.automatic-fields-section)').forEach(original => {
-      if (!original.querySelector('.form-group') && !original.querySelector('#itemsTable')) {
+      const tieneCamposVisibles = [...original.querySelectorAll('.form-group')].some(group =>
+        !group.classList.contains('profile-hidden') && !group.classList.contains('hidden-field')
+      );
+      if (!tieneCamposVisibles && !original.querySelector('#itemsTable')) {
         original.classList.add('profile-hidden');
       }
     });
