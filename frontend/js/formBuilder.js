@@ -452,13 +452,25 @@ const FormBuilder = {
     ].some(campo => k.includes(campo));
   },
 
+  esCampoOcultoIessCMedico(key) {
+    const k = key.toUpperCase().replace(/[^A-Z0-9_]/g, '');
+    return [
+      'NMERO_PACIENTE', 'NO_PACIENTE', 'VALOR_UNITARIO', 'VALOR_TOTAL',
+      'DURACION', 'CODIGO_DE_DERIVACION', 'TIEMPO_ANESTESIA',
+      'PORCENTAJE_IVA', 'VALOR_IVA_UNITARIO',
+    ].some(campo => k.includes(campo));
+  },
+
   aplicarVisibilidadMedico(esMedico) {
     const esIessG = (this.currentHoja || '').toUpperCase().startsWith('IESS-G');
+    const esIessC = (this.currentHoja || '').toUpperCase().startsWith('IESS-C');
     document.querySelectorAll('#formFields .form-group').forEach(el => {
       const input = el.querySelector('input, select');
       const debeOcultar = esIessG
         ? this.esCampoOcultoIessGMedico(input?.name || '')
-        : this.esCampoMedico(input?.name || '');
+        : esIessC
+          ? this.esCampoOcultoIessCMedico(input?.name || '')
+          : this.esCampoMedico(input?.name || '');
       if (input && input.name && debeOcultar) {
         el.classList.toggle('hidden-field', esMedico);
       }
@@ -498,8 +510,10 @@ const FormBuilder = {
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
       if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
-      const mantenerOcultoParaMedico = App.userType === 'medico' && hojaUp.startsWith('IESS-G') &&
-        this.esCampoOcultoIessGMedico(input?.name || '');
+      const mantenerOcultoParaMedico = App.userType === 'medico' && (
+        (hojaUp.startsWith('IESS-G') && this.esCampoOcultoIessGMedico(input?.name || '')) ||
+        (hojaUp.startsWith('IESS-C') && this.esCampoOcultoIessCMedico(input?.name || ''))
+      );
       if (esPerfilEditableCompleto && input?.name && esCampoVisible(input.name) && !mantenerOcultoParaMedico) {
         group.classList.remove('hidden-field');
       }
