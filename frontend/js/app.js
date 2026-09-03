@@ -1,12 +1,13 @@
 const App = {
   initialized: false,
-  userType: 'general',
+  userType: 'medico',
   meses: [],
 
   async init() {
     if (this.initialized) return;
     this.initialized = true;
     this.setupEventListeners();
+    this.setUserType(this.userType);
     Autocomplete.init();
     await Promise.all([
       this.checkConnection(),

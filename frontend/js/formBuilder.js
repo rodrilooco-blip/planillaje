@@ -447,7 +447,8 @@ const FormBuilder = {
     const k = key.toUpperCase().replace(/[^A-Z0-9_]/g, '');
     return [
       'DURACION', 'PORCENTAJE_IVA', 'VALOR_UNITARIO', 'VALOR_TOTAL',
-      'VALOR_IVA_UNITARIO', 'TIEMPO_ANESTESIA',
+      'VALOR_IVA_UNITARIO', 'TIEMPO_ANESTESIA', 'MARCA_FINAL',
+      'UNIDAD_OPERATIVA', 'SECUENCIAL_DERIVACION',
     ].some(campo => k.includes(campo));
   },
 
