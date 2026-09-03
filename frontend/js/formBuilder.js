@@ -461,16 +461,28 @@ const FormBuilder = {
     ].some(campo => k.includes(campo));
   },
 
+  esCampoOcultoSppatMedico(key) {
+    const k = key.toUpperCase().replace(/[^A-Z0-9_]/g, '');
+    return [
+      'VALOR_UNITARIO', 'DURACION', 'SECUENCIAL_DERIVACION',
+      'TIEMPO_ANESTESIA', 'PORCENTAJE_IVA', 'VALOR_IVA_UNITARIO',
+      'VALOR_TOTAL', 'GASTOS_DE_GESTION', 'OBSERVACION',
+    ].some(campo => k.includes(campo));
+  },
+
   aplicarVisibilidadMedico(esMedico) {
     const esIessG = (this.currentHoja || '').toUpperCase().startsWith('IESS-G');
     const esIessC = (this.currentHoja || '').toUpperCase().startsWith('IESS-C');
+    const esSppat = (this.currentHoja || '').toUpperCase().startsWith('SPPAT');
     document.querySelectorAll('#formFields .form-group').forEach(el => {
       const input = el.querySelector('input, select');
       const debeOcultar = esIessG
         ? this.esCampoOcultoIessGMedico(input?.name || '')
         : esIessC
           ? this.esCampoOcultoIessCMedico(input?.name || '')
-          : this.esCampoMedico(input?.name || '');
+          : esSppat
+            ? this.esCampoOcultoSppatMedico(input?.name || '')
+            : this.esCampoMedico(input?.name || '');
       if (input && input.name && debeOcultar) {
         el.classList.toggle('hidden-field', esMedico);
       }
@@ -512,7 +524,8 @@ const FormBuilder = {
       if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
       const mantenerOcultoParaMedico = App.userType === 'medico' && (
         (hojaUp.startsWith('IESS-G') && this.esCampoOcultoIessGMedico(input?.name || '')) ||
-        (hojaUp.startsWith('IESS-C') && this.esCampoOcultoIessCMedico(input?.name || ''))
+        (hojaUp.startsWith('IESS-C') && this.esCampoOcultoIessCMedico(input?.name || '')) ||
+        (hojaUp.startsWith('SPPAT') && this.esCampoOcultoSppatMedico(input?.name || ''))
       );
       if (esPerfilEditableCompleto && input?.name && esCampoVisible(input.name) && !mantenerOcultoParaMedico) {
         group.classList.remove('hidden-field');
@@ -562,6 +575,13 @@ const FormBuilder = {
 
     grupos.forEach(group => {
       group.classList.remove('profile-hidden', 'hidden-field');
+      const input = group.querySelector('input, select, textarea');
+      const ocultarParaMedico = App.userType === 'medico' && hojaUp.startsWith('SPPAT') &&
+        this.esCampoOcultoSppatMedico(input?.name || '');
+      if (ocultarParaMedico) {
+        group.classList.add('profile-hidden');
+        return;
+      }
       grid.appendChild(group);
     });
 
@@ -1015,8 +1035,14 @@ const FormBuilder = {
       { key: cantidadKey, label: 'Cantidad', type: 'number' },
     ].filter(c => c.key);
     const keysBase = new Set(camposBase.map(c => c.key));
+    const hojaUp = (this.currentHoja || '').toUpperCase();
+    const ocultarParaMedico = campo => App.userType === 'medico' && (
+      (hojaUp.startsWith('IESS-G') && this.esCampoOcultoIessGMedico(campo.key)) ||
+      (hojaUp.startsWith('IESS-C') && this.esCampoOcultoIessCMedico(campo.key)) ||
+      (hojaUp.startsWith('SPPAT') && this.esCampoOcultoSppatMedico(campo.key))
+    );
     const camposAdicionales = campos
-      .filter(c => !keysBase.has(c.key))
+      .filter(c => !keysBase.has(c.key) && !ocultarParaMedico(c))
       .map(c => ({
         key: c.key,
         label: c.labelText,
