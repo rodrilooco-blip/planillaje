@@ -26,7 +26,7 @@ const Reglas = {
 
   calcularEdad() {
     const nac = this.getValue('FECHA_NACIMIENTO');
-    const ing = this.getValue('FECHA_INGRESO') || this.getValue('FECHA_ATENCION');
+    const ing = this.getValue('FECHA_DE_INGRESO') || this.getValue('FECHA_INGRESO') || this.getValue('FECHA_ATENCION');
     if (!nac || !ing) return;
     const convertirFecha = valor => {
       const texto = String(valor || '').trim();
@@ -70,7 +70,7 @@ const Reglas = {
 
   setupEventListeners() {
     const nac = this.getField('FECHA_NACIMIENTO');
-    const ing = this.getField('FECHA_INGRESO');
+    const ing = this.getField('FECHA_DE_INGRESO') || this.getField('FECHA_INGRESO');
     const ate = this.getField('FECHA_ATENCION');
     const par = this.getField('PARENTESCO');
     const idBenKey = Object.keys(this.fieldMap).find(k =>
