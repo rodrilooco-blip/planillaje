@@ -970,6 +970,7 @@ const FormBuilder = {
 
   esCampoRepetible(nombre) {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
+    if (n.includes('TIEMPO ANESTESIA') || n.includes('TIEMPO_ANESTESIA')) return false;
     return n.includes('PROCEDIMIENTO') || n.includes('MEDICAMENTO') ||
            n.includes('CANTIDAD') || n.includes('VALOR_UNITARIO') ||
            n.includes('VALOR_TOTAL') || n.includes('DURACION') ||
