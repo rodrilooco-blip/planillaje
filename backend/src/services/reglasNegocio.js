@@ -61,7 +61,12 @@ function aplicarReglasFijas(hoja, data) {
     if (uniKey) r[uniKey] = '471';
 
     const archKey = buscarKey(r, 'ARCHIVO');
-    if (archKey) r[archKey] = 'HCU_008_';
+    if (archKey) {
+      const archivoIngresado = String(r[archKey] || '').trim().toUpperCase();
+      r[archKey] = archivoIngresado.startsWith('HCU_008_')
+        ? archivoIngresado
+        : `HCU_008_${archivoIngresado}`;
+    }
 
     const pagKey = buscarKey(r, 'PAGINA');
     if (pagKey) r[pagKey] = '1';

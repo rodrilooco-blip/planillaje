@@ -287,6 +287,8 @@ const FormBuilder = {
     } else if (this.esCampoFecha(nombre)) {
       const val = this.esFechaAtencionOIngreso(nombre) ? Utils.getFechaHoy() : '';
       inputHtml = `<input type="date" id="f-${key}" name="${key}" value="${val}" placeholder="${labelText}">`;
+    } else if (this.limpiarNombreColumna(nombre).toUpperCase().includes('ARCHIVO')) {
+      inputHtml = `<input type="text" id="f-${key}" name="${key}" value="HCU_008_" placeholder="Agregue el número del documento después de HCU_008_">`;
     } else if (esDependencia) {
       inputHtml = `<div class="input-wrapper"><input type="text" id="f-${key}" name="${key}" data-catalogo="dependencia" data-colcodigo="codigo" data-coldesc="descripcion" placeholder="Buscar código o dependencia..."></div>`;
     } else if (this.esCampoSelect(nombre)) {
@@ -793,7 +795,7 @@ const FormBuilder = {
   esCampoBloqueado(nombre) {
     const n = this.limpiarNombreColumna(nombre).toUpperCase();
     if (n.includes('MARCA FINAL') || n.includes('UNIDAD OPERATIVA')) return true;
-    if (n.includes('PROVINCIA') || n.includes('UNICODIGO') || n.includes('PAGINA') || n.includes('PÁGINA') || n.includes('ARCHIVO')) return true;
+    if (n.includes('PROVINCIA') || n.includes('UNICODIGO') || n.includes('PAGINA') || n.includes('PÁGINA')) return true;
     if (n.includes('TIPO') && n.includes('COBERTURA')) return true;
     return false;
   },
