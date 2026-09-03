@@ -510,6 +510,10 @@ const FormBuilder = {
       if (!tieneCamposVisibles && !section.querySelector('#itemsTable')) section.classList.add('profile-hidden');
     });
 
+    if (App.userType === 'medico' && hojaUp.startsWith('IESS-G')) {
+      document.querySelector('#formFields .form-section[data-section="derivacion"]')?.classList.add('profile-hidden');
+    }
+
     if (!['IESS-G', 'IESS-C', 'SPPAT', 'ISSPOL', 'ISSFA'].some(prefijo => hojaUp.startsWith(prefijo))) {
       document.getElementById('btnGuardar')?.classList.add('profile-hidden-action');
       document.getElementById('btnLimpiar')?.classList.add('profile-hidden-action');

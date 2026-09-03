@@ -23,6 +23,7 @@ const App = {
     });
     if (FormBuilder.currentHoja) {
       FormBuilder.aplicarVisibilidadMedico(tipo === 'medico');
+      FormBuilder.aplicarPerfilHoja();
     }
   },
 
