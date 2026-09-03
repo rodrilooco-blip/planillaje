@@ -443,10 +443,22 @@ const FormBuilder = {
     return ocultos.some(o => k.includes(o));
   },
 
+  esCampoOcultoIessGMedico(key) {
+    const k = key.toUpperCase().replace(/[^A-Z0-9_]/g, '');
+    return [
+      'DURACION', 'PORCENTAJE_IVA', 'VALOR_UNITARIO', 'VALOR_TOTAL',
+      'VALOR_IVA_UNITARIO', 'TIEMPO_ANESTESIA',
+    ].some(campo => k.includes(campo));
+  },
+
   aplicarVisibilidadMedico(esMedico) {
+    const esIessG = (this.currentHoja || '').toUpperCase().startsWith('IESS-G');
     document.querySelectorAll('#formFields .form-group').forEach(el => {
       const input = el.querySelector('input, select');
-      if (input && input.name && this.esCampoMedico(input.name)) {
+      const debeOcultar = esIessG
+        ? this.esCampoOcultoIessGMedico(input?.name || '')
+        : this.esCampoMedico(input?.name || '');
+      if (input && input.name && debeOcultar) {
         el.classList.toggle('hidden-field', esMedico);
       }
     });
@@ -485,7 +497,11 @@ const FormBuilder = {
     document.querySelectorAll('#formFields .form-group').forEach(group => {
       const input = group.querySelector('input, select, textarea');
       if (input?.name && !esCampoVisible(input.name)) group.classList.add('profile-hidden');
-      if (esPerfilEditableCompleto && input?.name && esCampoVisible(input.name)) group.classList.remove('hidden-field');
+      const mantenerOcultoParaMedico = App.userType === 'medico' && hojaUp.startsWith('IESS-G') &&
+        this.esCampoOcultoIessGMedico(input?.name || '');
+      if (esPerfilEditableCompleto && input?.name && esCampoVisible(input.name) && !mantenerOcultoParaMedico) {
+        group.classList.remove('hidden-field');
+      }
     });
 
     document.querySelectorAll('#formFields .form-section').forEach(section => {
