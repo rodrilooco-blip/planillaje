@@ -131,11 +131,11 @@ async function descubrirMesesDrive() {
   for (const carp of carpetas) {
     const normalizado = carp.name.trim().toUpperCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const match = normalizado.match(/^(\d{2,4})[_\-\s]+([A-Z]+)$/);
+    const match = normalizado.match(/^(\d{2,4})[_\-\s]+([A-ZÁÉÍÓÚÜÑ]+)$/);
     if (!match) continue;
     let anio = parseInt(match[1], 10);
     if (anio < 100) anio += 2000;
-    const mesNombre = match[2];
+    const mesNombre = match[2].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const mesNum = nombresMeses.findIndex(n => n.toUpperCase() === mesNombre) + 1;
     if (mesNum <= 0) {
       console.log('[DISCOVER] Carpeta ignorada (mes no reconocido): ' + carp.name);

@@ -338,8 +338,75 @@ async function listarArchivosEnCarpeta(folderId) {
   return res.data.files || [];
 }
 
+async function listarHojasMes(codigo) {
+  const mes = storage.obtenerMes(codigo);
+  if (!mes) throw new Error('Mes no encontrado');
+  const folderId = mes.carpeta_id || mes.carpetaId;
+  if (!folderId) return [];
+  const archivos = await listarArchivosEnCarpeta(folderId);
+  return archivos.filter(f => f.mimeType === 'application/vnd.google-apps.spreadsheet')
+    .map(f => ({ id: f.id, nombre: f.name }));
+}
+
+async function enlazarHojaMes(codigo, tipo, { archivoId, nombre } = {}) {
+  if (!['hospitalizacion', 'emergencia'].includes(tipo)) throw new Error('Tipo de archivo inválido');
+  const mes = storage.obtenerMes(codigo);
+  if (!mes) throw new Error('Mes no encontrado');
+  let folderId = mes.carpeta_id || mes.carpetaId;
+
+  let archivo;
+  if (archivoId) {
+    const drive = await getDriveClient();
+    const encontrado = await drive.files.get({ fileId: archivoId, fields: 'id,name,mimeType' });
+    if (encontrado.data.mimeType !== 'application/vnd.google-apps.spreadsheet') {
+      throw new Error('El archivo indicado no es una hoja de cálculo de Google');
+    }
+    archivo = encontrado.data;
+  } else {
+    const nombreArchivo = String(nombre || '').trim();
+    if (!nombreArchivo) throw new Error('Indica el nombre del archivo');
+    if (!folderId) {
+      folderId = await crearCarpeta(mes.nombre || meses.generarNombreCarpeta(mes.anio, mes.mes));
+    }
+    const id = await crearSpreadsheet(nombreArchivo, folderId);
+    archivo = { id, name: nombreArchivo };
+  }
+
+  const anio = mes.anio;
+  const numeroMes = mes.mes;
+  const tabs = meses.obtenerNombresTabs(tipo);
+  await agregarTabs(archivo.id, tabs);
+  const templateId = tipo === 'hospitalizacion' ? config.sheets.hospitalizacion : config.sheets.emergencia;
+  if (templateId) {
+    const encabezadosPlantilla = await sheets.leerEncabezados(templateId, tabs[0]);
+    if (encabezadosPlantilla && encabezadosPlantilla.length) {
+      const sheetsClient = await getSheetsClient();
+      for (const tab of tabs) {
+        const encabezadosActuales = await sheets.leerEncabezados(archivo.id, tab);
+        if (!encabezadosActuales || !encabezadosActuales.length) {
+          await sheetsClient.spreadsheets.values.update({
+            spreadsheetId: archivo.id, range: tab + '!A1', valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [encabezadosPlantilla] },
+          });
+        }
+      }
+      const encabezadosDestino = await sheets.leerEncabezados(archivo.id, tabs[0]);
+      if (encabezadosDestino && encabezadosDestino.length) storage.guardarEncabezados(tipo, tabs[0], encabezadosDestino);
+    }
+  }
+
+  const actualizado = { ...mes, codigo, nombre: mes.nombre || meses.generarNombreCarpeta(anio, numeroMes),
+    carpetaId: folderId || (mes.carpeta_id || ''), hosp_sheet_id: mes.hosp_sheet_id, emerg_sheet_id: mes.emerg_sheet_id };
+  if (tipo === 'hospitalizacion') actualizado.hosp_sheet_id = archivo.id;
+  else actualizado.emerg_sheet_id = archivo.id;
+  storage.guardarMes(actualizado);
+  return { id: archivo.id, nombre: archivo.name };
+}
+
 module.exports = {
   crearMes,
+  listarHojasMes,
+  enlazarHojaMes,
   getServiceAccountEmail,
   listarArchivosSADrive,
   listarArchivosEnCarpeta,

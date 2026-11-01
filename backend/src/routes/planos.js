@@ -175,6 +175,24 @@ router.post('/meses/redescubrir', escrituras, async (req, res) => {
   }
 });
 
+router.get('/meses/:codigo/archivos', lecturas, async (req, res) => {
+  try {
+    const archivos = await driveManager.listarHojasMes(req.params.codigo);
+    res.json({ archivos });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/meses/:codigo/archivos', escrituras, async (req, res) => {
+  try {
+    const archivo = await driveManager.enlazarHojaMes(req.params.codigo, req.body.tipo, req.body);
+    res.json({ exito: true, archivo });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.get('/meses/diagnostico', lecturas, async (req, res) => {
   await driveManager.getServiceAccountEmail();
   let archivosSADrive = [];

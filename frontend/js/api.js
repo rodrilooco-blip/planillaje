@@ -115,6 +115,16 @@ const API = {
     });
   },
 
+  listarArchivosMes(codigo) {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/${encodeURIComponent(codigo)}/archivos`);
+  },
+
+  enlazarArchivoMes(codigo, datos) {
+    return this.fetchJSON(`${Utils.API_BASE}/planos/meses/${encodeURIComponent(codigo)}/archivos`, {
+      method: 'POST', body: JSON.stringify(datos),
+    });
+  },
+
   redescubrirMeses() {
     return this.fetchJSON(`${Utils.API_BASE}/planos/meses/redescubrir`, { method: 'POST' });
   },

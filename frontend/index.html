@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Planillaje</title>
-  <link rel="stylesheet" href="css/main.css?v=22">
+  <link rel="stylesheet" href="css/main.css?v=23">
   <link rel="stylesheet" href="css/menu.css?v=22">
   <link rel="stylesheet" href="css/forms.css?v=22">
 </head>
@@ -25,6 +25,7 @@
           <option value="">Cargando...</option>
         </select>
         <button class="btn-month-add" id="btnNuevoMes" title="Crear nuevo mes">+</button>
+        <button class="btn-month-add" id="btnArchivosMes" title="Elegir o crear archivos del mes" aria-label="Configurar archivos del mes">&#x1F4C4;</button>
         <button class="btn-month-add" id="btnRedescubrir" title="Redescubrir meses desde Drive">&#x1F50D;</button>
       </div>
     </div>
@@ -95,13 +96,38 @@
     </main>
   </div>
 
+  <dialog id="monthFilesDialog" class="month-files-dialog">
+    <form method="dialog" class="month-files-form" id="monthFilesForm">
+      <h2>Archivos del mes</h2>
+      <p id="monthFilesDescription"></p>
+      <label for="monthFileType">Tipo de planilla</label>
+      <select id="monthFileType" required>
+        <option value="hospitalizacion">Hospitalización</option>
+        <option value="emergencia">Emergencia</option>
+      </select>
+      <label for="monthFileExisting">Elegir archivo existente</label>
+      <select id="monthFileExisting">
+        <option value="">Cargando archivos...</option>
+      </select>
+      <label for="monthFileId">O pegar el enlace o ID de una hoja de Google</label>
+      <input id="monthFileId" type="text" placeholder="https://docs.google.com/spreadsheets/d/...">
+      <label for="monthFileName">O crear un archivo nuevo con este nombre</label>
+      <input id="monthFileName" type="text" maxlength="150" placeholder="Ej. HOSPITALIZACION_NOVIEMBRE_2026">
+      <div class="month-files-actions">
+        <button type="button" class="btn btn-secondary" id="btnCerrarArchivos">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarArchivoMes">Guardar archivo</button>
+      </div>
+      <div id="monthFilesMessage" role="status"></div>
+    </form>
+  </dialog>
+
   <script src="js/utils.js?v=22"></script>
-  <script src="js/api.js?v=23"></script>
+  <script src="js/api.js?v=24"></script>
   <script src="js/autocomplete.js?v=24"></script>
   <script src="js/reglas.js?v=25"></script>
   <script src="js/menu.js?v=22"></script>
   <script src="js/recentTable.js?v=22"></script>
   <script src="js/formBuilder.js?v=25"></script>
-  <script src="js/app.js?v=22"></script>
+  <script src="js/app.js?v=23"></script>
 </body>
 </html>

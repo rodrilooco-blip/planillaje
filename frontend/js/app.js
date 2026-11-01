@@ -48,12 +48,13 @@ const App = {
           opt.textContent = m.nombre || m.codigo;
           select.appendChild(opt);
         });
-        // Preseleccionar el mes actual (ej. 26_JULIO si estamos en julio), o el mas reciente como fallback
+        // Priorizar el mes calendario actual, incluso si quedó otro mes guardado
+        // en el navegador. Si todavía no existe, respetar la selección guardada.
         const codigoActual = this.generarCodigoMesActual();
         const mesActual = this.meses.find(m => m.codigo === codigoActual);
         const guardado = localStorage.getItem('planillaje.mes');
         const mesGuardado = this.meses.find(m => m.codigo === guardado);
-        const preseleccionado = mesGuardado?.codigo || mesActual?.codigo || this.meses[0].codigo;
+        const preseleccionado = mesActual?.codigo || mesGuardado?.codigo || this.meses[0].codigo;
         select.value = preseleccionado;
         this.switchMes(preseleccionado);
       } else {
@@ -149,6 +150,12 @@ const App = {
       const resp = await API.crearMes(parseInt(anio, 10), parseInt(mes, 10));
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Mes creado: ' + (resp.mes?.codigo || ''));
       await this.loadMeses();
+      if (resp.mes?.codigo) {
+        this.switchMes(resp.mes.codigo);
+        const faltante = !(resp.mes.hosp_sheet_id || resp.mes.hospSheetId) ? 'hospitalizacion' :
+          (!(resp.mes.emerg_sheet_id || resp.mes.emergSheetId) ? 'emergencia' : '');
+        if (faltante) await this.abrirArchivosMes(resp.mes.codigo, faltante);
+      }
       if (btn) { btn.disabled = false; btn.textContent = '+'; }
     } catch (err) {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al crear mes: ' + err.message);
@@ -175,6 +182,18 @@ const App = {
     document.getElementById('btnUserMedico').addEventListener('click', () => this.setUserType('medico'));
     document.getElementById('btnExportarExcel')?.addEventListener('click', () => this.exportarExcel());
     document.getElementById('btnNuevoMes')?.addEventListener('click', () => this.crearNuevoMes());
+    document.getElementById('btnArchivosMes')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
+    document.getElementById('btnCerrarArchivos')?.addEventListener('click', () => document.getElementById('monthFilesDialog')?.close());
+    document.getElementById('btnGuardarArchivoMes')?.addEventListener('click', () => this.guardarArchivoMes());
+    document.getElementById('monthFileType')?.addEventListener('change', () => {
+      document.getElementById('monthFileExisting').value = '';
+      document.getElementById('btnGuardarArchivoMes').textContent = 'Guardar archivo';
+      this.sugerirNombreArchivoMes();
+    });
+    document.getElementById('monthFileExisting')?.addEventListener('change', () => {
+      const button = document.getElementById('btnGuardarArchivoMes');
+      button.textContent = document.getElementById('monthFileExisting').value ? 'Usar archivo seleccionado' : 'Guardar archivo';
+    });
     document.getElementById('btnRedescubrir')?.addEventListener('click', () => this.redescubrirMeses());
     document.getElementById('btnActualizarCatalogos')?.addEventListener('click', () => this.actualizarCatalogos());
     document.addEventListener('keydown', e => {
@@ -220,6 +239,87 @@ const App = {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al redescubrir: ' + err.message);
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F50D;'; }
+    }
+  },
+
+  sugerirNombreArchivoMes() {
+    const input = document.getElementById('monthFileName');
+    const mes = this.meses.find(m => m.codigo === document.getElementById('monthFilesDialog')?.dataset.mes);
+    if (!input || !mes || input.dataset.edited === 'true') return;
+    const tipo = document.getElementById('monthFileType').value;
+    const tipoNombre = tipo === 'hospitalizacion' ? 'HOSPITALIZACION' : 'EMERGENCIA';
+    const nombreMes = (mes.nombre || mes.codigo).replace(/^\d{2,4}[_\-\s]+/, '').toUpperCase();
+    input.value = `${tipoNombre}_${nombreMes}_${mes.anio}`;
+  },
+
+  async abrirArchivosMes(codigo, tipoInicial) {
+    const dialog = document.getElementById('monthFilesDialog');
+    const mes = this.meses.find(m => m.codigo === codigo);
+    const message = document.getElementById('monthFilesMessage');
+    if (!dialog || !mes) {
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Selecciona primero un mes válido.');
+      return;
+    }
+    dialog.dataset.mes = codigo;
+    document.getElementById('monthFilesDescription').textContent = `Mes: ${mes.nombre || mes.codigo}. Selecciona una hoja existente en su carpeta o crea una nueva.`;
+    document.getElementById('monthFileType').value = tipoInicial ||
+      (!mes.hosp_sheet_id ? 'hospitalizacion' : (!mes.emerg_sheet_id ? 'emergencia' : 'hospitalizacion'));
+    const nameInput = document.getElementById('monthFileName');
+    nameInput.dataset.edited = 'false';
+    nameInput.oninput = () => { nameInput.dataset.edited = 'true'; };
+    document.getElementById('monthFileExisting').innerHTML = '<option value="">Cargando archivos...</option>';
+    document.getElementById('monthFileId').value = '';
+    message.textContent = '';
+    this.sugerirNombreArchivoMes();
+    dialog.showModal();
+    try {
+      const resp = await API.listarArchivosMes(codigo);
+      const select = document.getElementById('monthFileExisting');
+      select.innerHTML = '<option value="">-- Elegir archivo de Drive --</option>';
+      (resp.archivos || []).forEach(archivo => {
+        const option = document.createElement('option');
+        option.value = archivo.id;
+        option.textContent = archivo.nombre;
+        select.appendChild(option);
+      });
+      if (!resp.archivos?.length) select.innerHTML = '<option value="">No hay archivos en la carpeta</option>';
+      const hojaActual = document.getElementById('monthFileType').value === 'hospitalizacion'
+        ? (mes.hosp_sheet_id || mes.hospSheetId) : (mes.emerg_sheet_id || mes.emergSheetId);
+      if (hojaActual && [...select.options].some(option => option.value === hojaActual)) select.value = hojaActual;
+    } catch (err) {
+      document.getElementById('monthFileExisting').innerHTML = '<option value="">No se pudieron listar archivos</option>';
+      message.textContent = err.message;
+    }
+  },
+
+  async guardarArchivoMes() {
+    const dialog = document.getElementById('monthFilesDialog');
+    const codigo = dialog?.dataset.mes;
+    const archivoId = document.getElementById('monthFileExisting').value;
+    const archivoPegado = document.getElementById('monthFileId').value.trim();
+    const nombre = document.getElementById('monthFileName').value.trim();
+    const tipo = document.getElementById('monthFileType').value;
+    const message = document.getElementById('monthFilesMessage');
+    const idPegadoMatch = archivoPegado.match(/\/spreadsheets\/d\/([\w-]+)/);
+    const idElegido = archivoId || (idPegadoMatch ? idPegadoMatch[1] : archivoPegado);
+    if (!idElegido && !nombre) {
+      message.textContent = 'Elige una hoja, pega su enlace o escribe el nombre para crearla.';
+      return;
+    }
+    const button = document.getElementById('btnGuardarArchivoMes');
+    try {
+      button.disabled = true;
+      button.textContent = nombre && !idElegido ? 'Creando...' : 'Enlazando...';
+      await API.enlazarArchivoMes(codigo, { tipo, archivoId: idElegido, nombre: idElegido ? undefined : nombre });
+      dialog.close();
+      await this.loadMeses();
+      this.switchMes(codigo);
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Archivo del mes enlazado correctamente.');
+    } catch (err) {
+      message.textContent = err.message;
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Guardar archivo';
     }
   },
 
