@@ -194,6 +194,7 @@ const FormBuilder = {
         const col = this.encontrarColumna(columnas, campo.keywords, usadas, campo.exact);
         if (!col) continue;
         usadas.add(col);
+        if (this.esNumeroPaciente(col.nombre)) continue;
         seccionHtml += this.renderCampoUnico(col);
       }
 
@@ -207,6 +208,7 @@ const FormBuilder = {
     if (restantes.length > 0) {
       let restHtml = '';
       for (const col of restantes) {
+        if (this.esNumeroPaciente(col.nombre)) continue;
         const key = this.getKey(col.nombre);
         if (this.fieldMap[key]) continue;
         if (this.esCampoRepetible(col.nombre)) {
@@ -806,8 +808,12 @@ const FormBuilder = {
   },
 
   esNoPaciente(nombre) {
-    const n = this.limpiarNombreColumna(nombre).toUpperCase();
-    return n.includes('NO. PACIENTE') || n.includes('NO PACIENTE') || n.startsWith('NO.');
+    const n = this.getKeySimple(this.limpiarNombreColumna(nombre));
+    return n.includes('NUMERO_PACIENTE') || n.includes('NMERO_PACIENTE') || n.includes('NO_PACIENTE');
+  },
+
+  esNumeroPaciente(nombre) {
+    return this.esNoPaciente(nombre);
   },
 
   esCampoNombreLargo(nombre) {

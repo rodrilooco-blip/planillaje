@@ -367,6 +367,17 @@ router.put('/:tipo/:hoja/:fila', escrituras, async (req, res) => {
 
     const encabezados = await sheets.leerEncabezados(sheetId, hoja);
     storage.guardarEncabezados(tipo, hoja, encabezados);
+    const indiceNumeroPaciente = encabezados.findIndex(h => {
+      const key = normalizarKey(h);
+      return key.includes('NUMERO_PACIENTE') || key.includes('NMERO_PACIENTE') || key.includes('NO_PACIENTE');
+    });
+    if (indiceNumeroPaciente >= 0) {
+      const keyNumeroPaciente = normalizarKey(encabezados[indiceNumeroPaciente]);
+      if (!dataCompleta[keyNumeroPaciente]) {
+        const filaActual = await sheets.leerFila(sheetId, hoja, numeroFila);
+        dataCompleta[keyNumeroPaciente] = filaActual[indiceNumeroPaciente] || '';
+      }
+    }
     const valores = encabezados.map(h => {
       const key = normalizarKey(h);
       return dataCompleta[key] !== undefined ? dataCompleta[key] : '';
