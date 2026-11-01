@@ -2,8 +2,11 @@ const RecentTable = {
   currentTipo: null,
   currentHoja: null,
   registros: [],
+  requestId: 0,
 
   async cargar(tipo, hoja) {
+    const requestId = ++this.requestId;
+    const mesSolicitado = window.mesActual || '';
     this.currentTipo = tipo;
     this.currentHoja = hoja;
 
@@ -18,6 +21,7 @@ const RecentTable = {
 
     try {
       const res = await API.getRegistros(tipo, hoja);
+      if (requestId !== this.requestId || mesSolicitado !== (window.mesActual || '')) return;
       const registros = res.registros || [];
       this.registros = registros;
       const search = document.getElementById('recentSearch');
@@ -32,6 +36,7 @@ const RecentTable = {
 
       this.renderRegistros(registros);
     } catch (err) {
+      if (requestId !== this.requestId || mesSolicitado !== (window.mesActual || '')) return;
       tbody.innerHTML = '<tr><td colspan="7" class="td-center">Error al cargar: ' + Utils.escapeHTML(err.message) + '</td></tr>';
     }
   },

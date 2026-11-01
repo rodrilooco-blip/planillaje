@@ -285,7 +285,9 @@ router.get('/:tipo/:hoja', lecturas, async (req, res) => {
     const registros = datos.slice(1).map((fila, idx) => {
       const obj = mapearFilaAObjeto(encabezados, fila);
       return { fila: idx + 2, datos: obj };
-    });
+    }).filter(registro =>
+      Object.values(registro.datos).some(valor => String(valor ?? '').trim() !== '')
+    );
 
     registros.reverse();
     res.json({ encabezados, registros, total: registros.length, source: 'google-sheets' });
