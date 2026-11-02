@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 module.exports = {
-  port: parseInt(process.env.PORT, 10) || 10000,
+  port: parseInt(process.env.PORT, 10) || 3000,
   serviceAccountPath: process.env.GOOGLE_SERVICE_ACCOUNT_PATH || '/etc/secrets/credentials.json',
   sheets: {
     catalogos: process.env.SHEET_CATALOGOS || '',

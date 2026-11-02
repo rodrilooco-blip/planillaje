@@ -2,18 +2,25 @@ const App = {
   initialized: false,
   userType: 'medico',
   meses: [],
+  doctorName: '',
+  currentView: 'home',
 
   async init() {
     if (this.initialized) return;
     this.initialized = true;
     this.setupEventListeners();
     this.setUserType(this.userType);
+    const doctorEntryName = document.getElementById('doctorEntryName');
+    this.doctorName = sessionStorage.getItem('planillaje.medico') || '';
+    if (doctorEntryName) doctorEntryName.value = this.doctorName;
+    if (this.doctorName) document.getElementById('doctorEntryError').textContent = '';
     Autocomplete.init();
     await Promise.all([
       this.checkConnection(),
       this.loadMeses(),
       Menu.init((tipo, hoja) => this.onSelectHoja(tipo, hoja)),
     ]);
+    await Promise.all([this.actualizarDashboardSync(), this.actualizarResumenDashboard()]);
   },
 
   setUserType(tipo) {
@@ -61,9 +68,17 @@ const App = {
         select.innerHTML += '<option value="" disabled>No hay meses creados</option>';
         // Intentar obtener el mes actual desde el backend por si warmCache lo creo
         try {
-          const actual = await API.getMesActual();
+          const respuesta = await API.getMesActual();
+          const actual = respuesta?.mes || respuesta;
           if (actual && actual.codigo) {
-            window.mesActual = actual.codigo;
+            this.meses = [actual];
+            select.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = actual.codigo;
+            opt.textContent = actual.nombre || actual.codigo;
+            select.appendChild(opt);
+            select.value = actual.codigo;
+            this.switchMes(actual.codigo);
           }
         } catch (e) { /* ignore */ }
       }
@@ -79,16 +94,154 @@ const App = {
     if (codigo) localStorage.setItem('planillaje.mes', codigo);
     const mes = this.meses.find(m => m.codigo === codigo);
     document.getElementById('monthSelect').value = codigo || '';
+    this.actualizarEtiquetaMes(mes);
     this.actualizarIndicadorDrive(mes);
-    if (FormBuilder.currentHoja) {
+    this.actualizarEstadoArchivosDashboard(mes);
+    this.actualizarResumenDashboard();
+    if (this.currentView === 'module' && FormBuilder.currentHoja) {
       this.onSelectHoja(FormBuilder.currentTipo, FormBuilder.currentHoja);
-    } else {
-      // Refrescar tabla de recientes si esta visible, con el nuevo mes
-      const tableContainer = document.getElementById('recentTableContainer');
-      if (tableContainer && tableContainer.style.display !== 'none' && RecentTable.currentHoja) {
-        RecentTable.cargar(RecentTable.currentTipo, RecentTable.currentHoja);
+    } else if (this.currentView === 'recent' && RecentTable.currentHoja) {
+      RecentTable.cargar(RecentTable.currentTipo, RecentTable.currentHoja);
+    }
+  },
+
+  actualizarEtiquetaMes(mes) {
+    const label = document.getElementById('dashboardMonthLabel');
+    if (label) label.textContent = mes ? (mes.nombre || mes.codigo) : 'Sin mes seleccionado';
+  },
+
+  actualizarEstadoArchivosDashboard(mes) {
+    const estadoEmergencia = document.getElementById('dashboardEmergFileStatus');
+    const estadoHosp = document.getElementById('dashboardHospFileStatus');
+    if (!estadoEmergencia || !estadoHosp) return;
+    estadoEmergencia.textContent = mes?.emerg_sheet_id ? 'Archivo enlazado' : 'Selecciona o crea una hoja';
+    estadoHosp.textContent = mes?.hosp_sheet_id ? 'Archivo enlazado' : 'Selecciona o crea una hoja';
+    estadoEmergencia.classList.toggle('is-ready', Boolean(mes?.emerg_sheet_id));
+    estadoHosp.classList.toggle('is-ready', Boolean(mes?.hosp_sheet_id));
+  },
+
+  async actualizarResumenDashboard() {
+    const elementos = {
+      emergencia: [document.getElementById('dashboardEmergencyCount'), document.getElementById('dashboardEmergencyCountLabel')],
+      hospitalizacion: [document.getElementById('dashboardHospitalCount'), document.getElementById('dashboardHospitalCountLabel')],
+    };
+    const mesSolicitado = window.mesActual || '';
+    try {
+      const respuesta = await API.getDashboardResumen();
+      if (mesSolicitado !== (window.mesActual || '')) return;
+      for (const tipo of Object.keys(elementos)) {
+        const [valor, label] = elementos[tipo];
+        const dato = respuesta.resumen?.[tipo];
+        valor.textContent = dato?.estado === 'ok' ? Number(dato.total || 0).toLocaleString('es-EC') : '—';
+        label.textContent = dato?.estado === 'ok' ? 'Registros del mes' :
+          (dato?.estado === 'sin-archivo' ? 'Sin archivo enlazado' : 'Total no disponible');
+      }
+    } catch (error) {
+      for (const [valor, label] of Object.values(elementos)) {
+        valor.textContent = '—';
+        label.textContent = 'Total no disponible';
       }
     }
+  },
+
+  async actualizarDashboardSync() {
+    const status = document.getElementById('dashboardSyncStatus');
+    const detail = document.getElementById('dashboardSyncUpdated');
+    const button = document.getElementById('btnDashboardSync');
+    try {
+      const respuesta = await API.checkSyncStatus();
+      const pendientes = Number(respuesta.pendientes || 0);
+      status.textContent = pendientes ? `${pendientes} registro(s) pendiente(s)` : 'Todo está sincronizado';
+      detail.textContent = pendientes
+        ? 'Hay registros locales esperando enviarse a Google Sheets.'
+        : 'No hay cambios pendientes de enviar a Google Sheets.';
+      if (button) button.disabled = pendientes === 0;
+    } catch (error) {
+      status.textContent = 'Estado no disponible';
+      detail.textContent = 'No se pudo consultar la cola de sincronización local.';
+      if (button) button.disabled = true;
+    }
+  },
+
+  async sincronizarDashboard() {
+    const button = document.getElementById('btnDashboardSync');
+    const status = document.getElementById('dashboardSyncStatus');
+    const detail = document.getElementById('dashboardSyncUpdated');
+    if (!button) return;
+    button.disabled = true;
+    button.textContent = 'Sincronizando…';
+    try {
+      const respuesta = await API.forceSync();
+      status.textContent = respuesta.restantes ? `${respuesta.restantes} registro(s) pendiente(s)` : 'Todo está sincronizado';
+      detail.textContent = respuesta.mensaje || 'Se actualizó la sincronización.';
+      await this.actualizarDashboardSync();
+    } catch (error) {
+      status.textContent = 'No se pudo sincronizar';
+      detail.textContent = error.message;
+      button.disabled = false;
+    } finally {
+      button.textContent = 'Sincronizar ahora';
+    }
+  },
+
+  ingresarMedico(event) {
+    event.preventDefault();
+    const input = document.getElementById('doctorEntryName');
+    const nombre = (input?.value || '').trim().replace(/\s+/g, ' ');
+    const error = document.getElementById('doctorEntryError');
+    if (!nombre) {
+      error.textContent = 'Escribe el nombre del médico para continuar.';
+      input?.focus();
+      return;
+    }
+    const nombreAnterior = this.doctorName;
+    this.doctorName = nombre;
+    sessionStorage.setItem('planillaje.medico', nombre);
+    document.getElementById('doctorNameDisplay').textContent = nombre;
+    document.getElementById('welcomeDoctorName').textContent = nombre;
+    document.getElementById('doctorEntryScreen').hidden = true;
+    document.getElementById('appShell').hidden = false;
+    error.textContent = '';
+    if (nombreAnterior !== nombre) this.aplicarMedicoEnFormulario(nombreAnterior);
+  },
+
+  solicitarCambioMedico() {
+    document.getElementById('doctorEntryName').value = this.doctorName;
+    document.getElementById('doctorEntryError').textContent = '';
+    document.getElementById('appShell').hidden = true;
+    document.getElementById('doctorEntryScreen').hidden = false;
+    document.getElementById('doctorEntryName').focus();
+  },
+
+  aplicarMedicoEnFormulario(nombreAnterior = '') {
+    const campos = document.querySelectorAll('#formFields input, #formFields select, #formFields textarea');
+    const profesional = [...campos].find(campo => {
+      const key = Utils.normalizar(campo.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return key.includes('PROFESIONAL') && key.includes('APELLIDO');
+    });
+    if (profesional && (!profesional.value.trim() || profesional.value.trim() === nombreAnterior)) {
+      profesional.value = this.doctorName;
+    }
+  },
+
+  abrirModulo(tipo) {
+    const hoja = Menu.modulos?.[tipo]?.[0];
+    if (hoja) Menu.selectHoja(tipo, hoja);
+    else Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', `No hay hojas configuradas para ${tipo}.`);
+  },
+
+  iniciarRegistroRapido() {
+    this.abrirModulo('emergencia');
+  },
+
+  async abrirRecientes() {
+    const tipo = RecentTable.currentTipo || FormBuilder.currentTipo || 'emergencia';
+    const hoja = RecentTable.currentHoja || FormBuilder.currentHoja || Menu.modulos?.[tipo]?.[0];
+    if (!hoja) return;
+    this.currentView = 'recent';
+    Utils.hide(document.getElementById('welcomeScreen'));
+    Utils.hide(document.getElementById('formContainer'));
+    await RecentTable.cargar(tipo, hoja);
   },
 
   actualizarIndicadorDrive(mes) {
@@ -165,13 +318,16 @@ const App = {
   },
 
   async checkConnection() {
+    const capabilityNote = document.getElementById('localCapabilityNote');
     try {
       const h = await API.getHealth();
       document.getElementById('statusDot').className = 'status-dot online';
       document.getElementById('statusText').textContent = 'Conectado';
+      if (capabilityNote) capabilityNote.textContent = 'Servidor conectado. El estado de las hojas aparece en cada módulo; selecciona una hoja mensual para registrar datos.';
     } catch {
       document.getElementById('statusDot').className = 'status-dot offline';
       document.getElementById('statusText').textContent = 'Sin conexi\u00f3n';
+      if (capabilityNote) capabilityNote.textContent = 'No se pudo conectar al servidor local. Reinicia la aplicación y vuelve a cargar esta página.';
     }
   },
 
@@ -185,6 +341,27 @@ const App = {
     document.getElementById('btnArchivosMes')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
     document.getElementById('btnCerrarArchivos')?.addEventListener('click', () => document.getElementById('monthFilesDialog')?.close());
     document.getElementById('btnGuardarArchivoMes')?.addEventListener('click', () => this.guardarArchivoMes());
+    document.getElementById('btnCloseRecordDetails')?.addEventListener('click', () => RecentTable.cerrarDetalle());
+    document.getElementById('btnPrintRecordDetails')?.addEventListener('click', () => {
+      const fila = document.getElementById('recordDetailsTitle')?.textContent.match(/Registro (\d+)/)?.[1];
+      if (fila) RecentTable.imprimir(Number(fila));
+    });
+    document.getElementById('btnDashboardSync')?.addEventListener('click', () => this.sincronizarDashboard());
+    document.getElementById('doctorEntryForm')?.addEventListener('submit', event => this.ingresarMedico(event));
+    document.getElementById('btnCambiarMedico')?.addEventListener('click', () => this.solicitarCambioMedico());
+    document.getElementById('btnDashboardEmergencia')?.addEventListener('click', () => this.abrirModulo('emergencia'));
+    document.getElementById('btnDashboardHospitalizacion')?.addEventListener('click', () => this.abrirModulo('hospitalizacion'));
+    document.getElementById('btnDashboardEmergFiles')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual, 'emergencia'));
+    document.getElementById('btnDashboardHospFiles')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual, 'hospitalizacion'));
+    document.getElementById('btnDashboardNuevo')?.addEventListener('click', () => this.abrirModulo('emergencia'));
+    document.getElementById('btnDashboardNuevoHosp')?.addEventListener('click', () => this.abrirModulo('hospitalizacion'));
+    document.getElementById('btnDashboardRecientes')?.addEventListener('click', () => this.abrirRecientes());
+    document.getElementById('btnSidebarInicio')?.addEventListener('click', () => this.volverInicio());
+    document.getElementById('btnSidebarNuevo')?.addEventListener('click', () => this.iniciarRegistroRapido());
+    document.getElementById('btnSidebarRecientes')?.addEventListener('click', () => this.abrirRecientes());
+    document.getElementById('btnSidebarArchivos')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
+    document.getElementById('btnDashboardArchivos')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
+    document.getElementById('btnSidebarExportar')?.addEventListener('click', () => this.exportarExcel());
     document.getElementById('monthFileType')?.addEventListener('change', () => {
       document.getElementById('monthFileExisting').value = '';
       document.getElementById('btnGuardarArchivoMes').textContent = 'Guardar archivo';
@@ -197,6 +374,10 @@ const App = {
     document.getElementById('btnRedescubrir')?.addEventListener('click', () => this.redescubrirMeses());
     document.getElementById('btnActualizarCatalogos')?.addEventListener('click', () => this.actualizarCatalogos());
     document.addEventListener('keydown', e => {
+      if (e.ctrlKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        this.iniciarRegistroRapido();
+      }
       if (e.ctrlKey && e.key === 'Enter' && FormBuilder.currentHoja) {
         e.preventDefault();
         document.getElementById('btnGuardarContinuar')?.click();
@@ -324,11 +505,17 @@ const App = {
   },
 
   async exportarExcel() {
-    if (!FormBuilder.currentTipo || !FormBuilder.currentHoja) return;
+    const tipo = this.currentView === 'recent' ? RecentTable.currentTipo : (FormBuilder.currentTipo || 'emergencia');
+    const hoja = this.currentView === 'recent' ? RecentTable.currentHoja :
+      (FormBuilder.currentHoja || Menu.modulos?.[tipo]?.[0]);
+    if (!tipo || !hoja) {
+      Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Selecciona un módulo antes de exportar.');
+      return;
+    }
     try {
       const btn = document.getElementById('btnExportarExcel');
       if (btn) { btn.disabled = true; btn.textContent = 'Exportando...'; }
-      await API.exportarExcel(FormBuilder.currentTipo, FormBuilder.currentHoja);
+      await API.exportarExcel(tipo, hoja);
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'success', 'Excel exportado correctamente');
       if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F4C4; Exportar Excel'; }
     } catch (err) {
@@ -339,6 +526,7 @@ const App = {
   },
 
   async onSelectHoja(tipo, hoja) {
+    this.currentView = 'module';
     Utils.hide(document.getElementById('welcomeScreen'));
     FormBuilder.editFila = null;
     FormBuilder.currentTipo = tipo;
@@ -355,6 +543,7 @@ const App = {
   },
 
   volverInicio() {
+    this.currentView = 'home';
     Utils.hide(document.getElementById('formContainer'));
     Utils.hide(document.getElementById('recentTableContainer'));
     Utils.show(document.getElementById('welcomeScreen'));

@@ -228,6 +228,7 @@ const FormBuilder = {
     }
 
     container.innerHTML = html;
+    App.aplicarMedicoEnFormulario();
 
     // Auto-fill targetdesc: si un campo catálogo del header tiene un campo NOMBRE correspondiente, linkearlo
     const headerCatalogoInputs = document.querySelectorAll('#formFields > .form-section input[data-catalogo]');

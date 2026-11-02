@@ -5,10 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Planillaje</title>
   <link rel="stylesheet" href="css/main.css?v=23">
+  <link rel="stylesheet" href="css/dashboard.css?v=8">
   <link rel="stylesheet" href="css/menu.css?v=22">
-  <link rel="stylesheet" href="css/forms.css?v=22">
+  <link rel="stylesheet" href="css/forms.css?v=23">
 </head>
 <body>
+  <main class="doctor-entry-screen" id="doctorEntryScreen">
+    <section class="doctor-entry-card" aria-labelledby="doctorEntryTitle">
+      <div class="doctor-entry-brand"><span class="logo-mark">PL</span><div><strong>Planillaje</strong><small>Hospital Miguel León Bermeo</small></div></div>
+      <div class="doctor-entry-icon" aria-hidden="true">&#x2695;</div>
+      <p class="doctor-entry-eyebrow">SISTEMA CLÍNICO</p>
+      <h1 id="doctorEntryTitle">Bienvenido</h1>
+      <p class="doctor-entry-copy">Escribe tu nombre para ingresar. Se mostrará en tu sesión y en el campo del profesional responsable.</p>
+      <form id="doctorEntryForm">
+        <label for="doctorEntryName">Apellido y nombre del médico</label>
+        <input id="doctorEntryName" name="doctorName" type="text" maxlength="120" autocomplete="name" placeholder="Ej. Dra. María Pérez" required>
+        <button class="btn btn-primary doctor-entry-submit" type="submit">Ingresar al sistema <span aria-hidden="true">&#x2192;</span></button>
+        <p class="doctor-entry-error" id="doctorEntryError" role="alert"></p>
+      </form>
+      <div class="doctor-entry-note"><span>&#x1F512;</span> El nombre se conserva solo durante esta sesión local.</div>
+    </section>
+  </main>
+
+  <div class="app-shell" id="appShell" hidden>
   <header class="app-header">
     <div class="header-logo">
       <span class="logo-mark">PL</span>
@@ -30,6 +49,11 @@
       </div>
     </div>
     <div class="header-status">
+      <div class="doctor-identity">
+        <span class="doctor-avatar" aria-hidden="true">&#x2695;</span>
+        <span class="doctor-identity-copy"><small>MÉDICO EN SESIÓN</small><strong id="doctorNameDisplay"></strong></span>
+        <button type="button" id="btnCambiarMedico" class="doctor-change-btn" title="Cambiar médico" aria-label="Cambiar médico">&#x270E;</button>
+      </div>
       <span class="status-dot" id="statusDot"></span>
       <span id="statusText">Conectando...</span>
       <button id="btnActualizarCatalogos" class="btn-catalogos" title="Actualizar catálogos desde Google Sheets" aria-label="Actualizar catálogos">&#x21BB;</button>
@@ -39,18 +63,54 @@
   <div class="app-container">
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-section"><div class="sidebar-title">M&oacute;dulos</div></div>
+      <div class="sidebar-quick-actions">
+        <button type="button" id="btnSidebarInicio"><span>&#x2302;</span> Inicio</button>
+        <button type="button" id="btnSidebarNuevo"><span>&#x2795;</span> Nuevo registro</button>
+        <button type="button" id="btnSidebarRecientes"><span>&#x23F1;</span> Registros recientes</button>
+        <button type="button" id="btnSidebarArchivos"><span>&#x1F4C1;</span> Archivos del mes</button>
+        <button type="button" id="btnSidebarExportar"><span>&#x1F4E5;</span> Exportar Excel</button>
+      </div>
       <div class="menu-principal" id="menuPrincipal"></div>
     </nav>
 
     <main class="content" id="contentArea">
       <div class="welcome-screen" id="welcomeScreen">
-        <div class="welcome-icon">&#x1F4CB;</div>
-        <h2>Bienvenido</h2>
-        <p>Seleccione un m&oacute;dulo en el men&uacute; lateral.</p>
-        <div class="welcome-info">
-          <div class="info-card"><span class="info-card-icon">&#x1F691;</span><h3>Emergencia</h3><p>Planillas de emergencia</p></div>
-          <div class="info-card"><span class="info-card-icon">&#x1F3E8;</span><h3>Hospitalizaci&oacute;n</h3><p>Planillas de hospitalizaci&oacute;n</p></div>
+        <div class="dashboard-heading">
+          <div><p class="dashboard-eyebrow">PERÍODO VIGENTE <span>&#x2022;</span> SISTEMA ACTIVO</p><h2>Bienvenido, <span id="welcomeDoctorName">médico</span></h2><p>Seleccione un módulo o inicie un nuevo registro para el corte mensual.</p></div>
+          <div class="dashboard-period"><span>&#x2713;</span><div><small>MES ACTIVO</small><strong id="dashboardMonthLabel">Cargando...</strong></div></div>
         </div>
+        <div class="dashboard-module-grid">
+          <article class="dashboard-module-card emergency-card">
+            <div class="dashboard-card-icon">&#x1F691;</div><span class="dashboard-card-kicker">MÓDULO #01</span><h3>Emergencia</h3><p>Planillas de guardia, atención inmediata y observación.</p>
+            <div class="dashboard-module-count"><strong id="dashboardEmergencyCount">—</strong><span id="dashboardEmergencyCountLabel">Registros del mes</span></div>
+            <div class="dashboard-module-file"><span>Hoja mensual</span><strong id="dashboardEmergFileStatus">Revisando…</strong><button type="button" id="btnDashboardEmergFiles" aria-label="Configurar archivo mensual de Emergencia">Configurar</button></div>
+            <button type="button" id="btnDashboardEmergencia">Ir a Emergencia <span>&#x2192;</span></button>
+          </article>
+          <article class="dashboard-module-card hospital-card">
+            <div class="dashboard-card-icon">&#x1F3E5;</div><span class="dashboard-card-kicker">MÓDULO #02</span><h3>Hospitalización</h3><p>Sábanas de piso, procedimientos, ingresos y egresos.</p>
+            <div class="dashboard-module-count"><strong id="dashboardHospitalCount">—</strong><span id="dashboardHospitalCountLabel">Registros del mes</span></div>
+            <div class="dashboard-module-file"><span>Hoja mensual</span><strong id="dashboardHospFileStatus">Revisando…</strong><button type="button" id="btnDashboardHospFiles" aria-label="Configurar archivo mensual de Hospitalización">Configurar</button></div>
+            <button type="button" id="btnDashboardHospitalizacion">Ir a Hospitalización <span>&#x2192;</span></button>
+          </article>
+          <article class="dashboard-quick-card">
+            <span class="dashboard-quick-icon">&#x270D;</span><div><span class="dashboard-card-kicker">INGRESO DIRECTO</span><h3>Nuevo registro clínico</h3><p>Abre el formulario de Emergencia. Puedes cambiar el módulo desde el menú.</p></div>
+            <div class="dashboard-quick-actions"><button type="button" id="btnDashboardNuevo" class="btn btn-primary">Nuevo en Emergencia</button><button type="button" id="btnDashboardNuevoHosp" class="btn btn-secondary">Nuevo en Hospitalización</button></div>
+            <small>Atajo: Ctrl + N</small>
+          </article>
+        </div>
+        <div class="dashboard-bottom-row">
+          <div class="dashboard-tip"><span>&#x1F4A1;</span><div><strong>Tu sesión está lista</strong><small>El nombre del médico se completará en cada nuevo registro.</small></div></div>
+          <button type="button" id="btnDashboardArchivos" class="dashboard-files-link"><span>&#x1F4C2;</span><span><strong>Archivos del mes</strong><small>Consulta las hojas de cálculo activas</small></span><span>&#x2197;</span></button>
+        </div>
+        <section class="dashboard-recent-preview" aria-labelledby="dashboardRecentTitle">
+          <div class="dashboard-recent-heading"><div><span class="dashboard-card-kicker">ACTIVIDAD</span><h3 id="dashboardRecentTitle">Registros recientes</h3></div><button type="button" id="btnDashboardRecientes" class="btn btn-secondary">Ver registros</button></div>
+          <p>Consulta, edita o imprime los registros del módulo y archivo mensual seleccionados.</p>
+        </section>
+        <section class="dashboard-sync-panel" aria-label="Estado de sincronización">
+          <div><span class="dashboard-card-kicker">SINCRONIZACIÓN</span><strong id="dashboardSyncStatus">Revisando estado…</strong><small id="dashboardSyncUpdated">Los cambios pendientes se envían a Google Sheets.</small></div>
+          <button type="button" id="btnDashboardSync" class="btn btn-secondary">Sincronizar ahora</button>
+        </section>
+        <p class="local-capability-note" id="localCapabilityNote" role="status">Conexión con Google Sheets: comprobando…</p>
       </div>
 
       <div class="form-container" id="formContainer" style="display:none;">
@@ -86,12 +146,16 @@
           <table class="recent-table">
             <thead>
               <tr>
-                <th>#</th><th>No. Paciente</th><th>Identificaci&oacute;n</th><th>Apellidos</th><th>Procedimiento</th><th>Fecha</th><th>Acci&oacute;n</th>
+                <th>#</th><th>Identificaci&oacute;n</th><th>Apellidos</th><th>Procedimiento</th><th>Fecha</th><th>Acci&oacute;n</th>
               </tr>
             </thead>
             <tbody id="recentBody"></tbody>
           </table>
         </div>
+        <nav class="recent-pagination" id="recentPagination" aria-label="Paginación de registros">
+          <span id="recentPageInfo" aria-live="polite"></span>
+          <div><button type="button" id="btnRecentPrev" class="btn btn-secondary">Anterior</button><button type="button" id="btnRecentNext" class="btn btn-secondary">Siguiente</button></div>
+        </nav>
       </div>
     </main>
   </div>
@@ -120,14 +184,20 @@
       <div id="monthFilesMessage" role="status"></div>
     </form>
   </dialog>
+  <dialog id="recordDetailsDialog" class="record-details-dialog" aria-labelledby="recordDetailsTitle">
+    <div class="record-details-header"><h2 id="recordDetailsTitle">Detalle del registro</h2><button type="button" id="btnCloseRecordDetails" class="btn btn-secondary">Cerrar</button></div>
+    <div id="recordDetailsBody" class="record-details-body"></div>
+    <div class="record-details-actions"><button type="button" id="btnPrintRecordDetails" class="btn btn-primary">Imprimir</button></div>
+  </dialog>
+  </div>
 
   <script src="js/utils.js?v=22"></script>
-  <script src="js/api.js?v=24"></script>
+  <script src="js/api.js?v=26"></script>
   <script src="js/autocomplete.js?v=24"></script>
   <script src="js/reglas.js?v=25"></script>
   <script src="js/menu.js?v=22"></script>
-  <script src="js/recentTable.js?v=23"></script>
+  <script src="js/recentTable.js?v=32"></script>
   <script src="js/formBuilder.js?v=26"></script>
-  <script src="js/app.js?v=23"></script>
+  <script src="js/app.js?v=34"></script>
 </body>
 </html>

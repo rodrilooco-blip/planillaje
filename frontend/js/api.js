@@ -21,6 +21,7 @@ const API = {
 
   getColumnas(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/columnas`); },
   getRegistros(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}`); },
+  getDashboardResumen() { return this.fetchJSON(`${Utils.API_BASE}/planos/dashboard/resumen`); },
   getNextNumero(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/next-numero`); },
   getRegistro(tipo, hoja, fila) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/${fila}`); },
 
@@ -37,7 +38,8 @@ const API = {
 
   exportarExcel(tipo, hoja) {
     return new Promise((resolve, reject) => {
-      fetch(`${Utils.API_BASE}/planos/${tipo}/${hoja}/exportar-excel`)
+      const mes = window.mesActual ? `?mes=${encodeURIComponent(window.mesActual)}` : '';
+      fetch(`${Utils.API_BASE}/planos/${tipo}/${hoja}/exportar-excel${mes}`)
         .then(res => {
           if (!res.ok) return res.json().catch(() => ({ error: res.statusText })).then(e => { throw new Error(e.error || 'Error ' + res.status); });
           return res.blob();

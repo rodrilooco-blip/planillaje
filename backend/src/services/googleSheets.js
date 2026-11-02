@@ -26,6 +26,16 @@ async function leerSheet(sheetId, rango) {
   return res.data.values || [];
 }
 
+async function leerHojas(sheetId, hojas) {
+  const client = await getSheetsClient();
+  const ranges = hojas.map(nombre => `${nombre}!A:ZZZ`);
+  const res = await client.spreadsheets.values.batchGet({
+    spreadsheetId: sheetId,
+    ranges,
+  });
+  return (res.data.valueRanges || []).map(rango => rango.values || []);
+}
+
 async function leerEncabezados(sheetId, hoja) {
   const filas = await leerSheet(sheetId, `${hoja}!1:1`);
   return filas[0] || [];
@@ -162,6 +172,7 @@ async function leerFila(sheetId, hoja, numeroFila) {
 module.exports = {
   getSheetsClient,
   leerSheet,
+  leerHojas,
   leerEncabezados,
   appendRow,
   appendRows,

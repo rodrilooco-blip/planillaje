@@ -316,13 +316,20 @@
   border: none;
   background: none;
   cursor: pointer;
-  padding: 4px 8px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px 7px;
   font-size: 14px;
   border-radius: 4px;
   transition: all 0.15s;
   opacity: 0.7;
 }
 .btn-sm:hover { opacity: 1; }
+.btn-sm:focus-visible { outline:3px solid #168a7b; outline-offset:2px; opacity:1; }
+.btn-view { color:#087c70; }
+.btn-view:hover { background:#e1f4ef; }
+.btn-print { color:#536b74; }
+.btn-print:hover { background:#e7eef1; }
 .btn-edit { color: var(--hospitalizacion); }
 .btn-edit:hover { background: #d4e6f1; }
 .btn-delete { color: var(--danger); }

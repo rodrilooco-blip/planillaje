@@ -27,10 +27,8 @@ function getSpreadsheetId(tipo, codigo) {
   const t = tipo.toLowerCase();
   if (codigo) {
     const mes = storage.obtenerMes(codigo);
-    if (mes) {
-      const id = t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
-      if (id) return id;
-    }
+    if (!mes) return null;
+    return t === 'hospitalizacion' ? mes.hosp_sheet_id : mes.emerg_sheet_id;
   }
   const mes = storage.obtenerMesMasReciente();
   if (mes) {
@@ -103,6 +101,29 @@ router.get('/buscar-pacientes', lecturas, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+router.get('/dashboard/resumen', lecturas, async (req, res) => {
+  const mesCodigo = String(req.query.mes || '');
+  const resumen = {};
+  await Promise.all(['emergencia', 'hospitalizacion'].map(async tipo => {
+    const sheetId = getSpreadsheetId(tipo, mesCodigo);
+    if (!sheetId) {
+      resumen[tipo] = { total: null, estado: 'sin-archivo' };
+      return;
+    }
+    try {
+      const hojas = config.hojas[tipo];
+      const rangos = await sheets.leerHojas(sheetId, hojas);
+      const total = rangos.reduce((suma, filas) => suma + filas.slice(1).filter(fila =>
+        fila.some(valor => String(valor ?? '').trim() !== '')
+      ).length, 0);
+      resumen[tipo] = { total, estado: 'ok' };
+    } catch (error) {
+      resumen[tipo] = { total: null, estado: 'no-disponible' };
+    }
+  }));
+  res.json({ mes: mesCodigo, resumen });
 });
 
 router.get('/:tipo/:hoja/columnas', lecturas, async (req, res) => {
@@ -265,7 +286,21 @@ router.post('/meses/crear', escrituras, async (req, res) => {
 });
 
 router.get('/mes/actual', lecturas, async (req, res) => {
-  const mes = storage.obtenerMesMasReciente();
+  let mes = storage.obtenerMesMasReciente();
+  if (!mes) {
+    const actual = mesesUtils.ahora();
+    const codigo = mesesUtils.generarCodigo(actual.anio, actual.mes);
+    storage.guardarMes({
+      codigo,
+      nombre: mesesUtils.generarNombreCarpeta(actual.anio, actual.mes),
+      anio: actual.anio,
+      mes: actual.mes,
+      carpetaId: '',
+      hosp_sheet_id: null,
+      emerg_sheet_id: null,
+    });
+    mes = storage.obtenerMes(codigo);
+  }
   res.json({ mes });
 });
 
