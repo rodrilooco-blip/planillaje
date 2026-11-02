@@ -406,8 +406,9 @@ const FormBuilder = {
     }
 
     const esNombreLargo = this.esCampoNombreLargo(nombre);
+    const esCampoProfesional = key.includes('APELLIDO') && key.includes('NOMBRE') && key.includes('PROFESIONAL');
     this.fieldMap[key] = nombre;
-    return `<div class="form-group${esNombreLargo ? ' full-width' : ''}"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
+    return `<div class="form-group${esNombreLargo ? ' full-width' : ''}${esCampoProfesional ? ' hidden-field' : ''}"><label for="f-${key}">${labelText}</label>${inputHtml}</div>`;
   },
 
   async verificarSyncStatus() {
