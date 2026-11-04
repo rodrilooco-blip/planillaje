@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sistema de Planillaje</title>
   <link rel="stylesheet" href="css/main.css?v=23">
-  <link rel="stylesheet" href="css/dashboard.css?v=8">
-  <link rel="stylesheet" href="css/menu.css?v=22">
+  <link rel="stylesheet" href="css/dashboard.css?v=9">
+  <link rel="stylesheet" href="css/menu.css?v=23">
   <link rel="stylesheet" href="css/forms.css?v=23">
 </head>
 <body>
@@ -43,9 +43,6 @@
         <select id="monthSelect" class="month-select">
           <option value="">Cargando...</option>
         </select>
-        <button class="btn-month-add" id="btnNuevoMes" title="Crear nuevo mes">+</button>
-        <button class="btn-month-add" id="btnArchivosMes" title="Elegir o crear archivos del mes" aria-label="Configurar archivos del mes">&#x1F4C4;</button>
-        <button class="btn-month-add" id="btnRedescubrir" title="Redescubrir meses desde Drive">&#x1F50D;</button>
       </div>
     </div>
     <div class="header-status">
@@ -65,10 +62,14 @@
       <div class="sidebar-section"><div class="sidebar-title">M&oacute;dulos</div></div>
       <div class="sidebar-quick-actions">
         <button type="button" id="btnSidebarInicio"><span>&#x2302;</span> Inicio</button>
-        <button type="button" id="btnSidebarNuevo"><span>&#x2795;</span> Nuevo registro</button>
         <button type="button" id="btnSidebarRecientes"><span>&#x23F1;</span> Registros recientes</button>
-        <button type="button" id="btnSidebarArchivos"><span>&#x1F4C1;</span> Archivos del mes</button>
-        <button type="button" id="btnSidebarExportar"><span>&#x1F4E5;</span> Exportar Excel</button>
+        <button type="button" id="btnSidebarConfiguracion" aria-expanded="false" aria-controls="sidebarConfigOptions"><span>&#x2699;</span> Configuración <span class="sidebar-config-arrow">&#x25B8;</span></button>
+        <div class="sidebar-config-options" id="sidebarConfigOptions" hidden>
+          <button type="button" id="btnArchivosMes">Archivos del mes</button>
+          <button type="button" id="btnNuevoMes">Crear mes</button>
+          <button type="button" id="btnRedescubrir">Buscar meses en Drive</button>
+          <button type="button" id="btnActualizarCatalogos">Actualizar catálogos</button>
+        </div>
       </div>
       <div class="menu-principal" id="menuPrincipal"></div>
     </nav>
@@ -83,13 +84,11 @@
           <article class="dashboard-module-card emergency-card">
             <div class="dashboard-card-icon">&#x1F691;</div><span class="dashboard-card-kicker">MÓDULO #01</span><h3>Emergencia</h3><p>Planillas de guardia, atención inmediata y observación.</p>
             <div class="dashboard-module-count"><strong id="dashboardEmergencyCount">—</strong><span id="dashboardEmergencyCountLabel">Registros del mes</span></div>
-            <div class="dashboard-module-file"><span>Hoja mensual</span><strong id="dashboardEmergFileStatus">Revisando…</strong><button type="button" id="btnDashboardEmergFiles" aria-label="Configurar archivo mensual de Emergencia">Configurar</button></div>
             <button type="button" id="btnDashboardEmergencia">Ir a Emergencia <span>&#x2192;</span></button>
           </article>
           <article class="dashboard-module-card hospital-card">
             <div class="dashboard-card-icon">&#x1F3E5;</div><span class="dashboard-card-kicker">MÓDULO #02</span><h3>Hospitalización</h3><p>Sábanas de piso, procedimientos, ingresos y egresos.</p>
             <div class="dashboard-module-count"><strong id="dashboardHospitalCount">—</strong><span id="dashboardHospitalCountLabel">Registros del mes</span></div>
-            <div class="dashboard-module-file"><span>Hoja mensual</span><strong id="dashboardHospFileStatus">Revisando…</strong><button type="button" id="btnDashboardHospFiles" aria-label="Configurar archivo mensual de Hospitalización">Configurar</button></div>
             <button type="button" id="btnDashboardHospitalizacion">Ir a Hospitalización <span>&#x2192;</span></button>
           </article>
           <article class="dashboard-quick-card">
@@ -100,7 +99,6 @@
         </div>
         <div class="dashboard-bottom-row">
           <div class="dashboard-tip"><span>&#x1F4A1;</span><div><strong>Tu sesión está lista</strong><small>El nombre del médico se completará en cada nuevo registro.</small></div></div>
-          <button type="button" id="btnDashboardArchivos" class="dashboard-files-link"><span>&#x1F4C2;</span><span><strong>Archivos del mes</strong><small>Consulta las hojas de cálculo activas</small></span><span>&#x2197;</span></button>
         </div>
         <section class="dashboard-recent-preview" aria-labelledby="dashboardRecentTitle">
           <div class="dashboard-recent-heading"><div><span class="dashboard-card-kicker">ACTIVIDAD</span><h3 id="dashboardRecentTitle">Registros recientes</h3></div><button type="button" id="btnDashboardRecientes" class="btn btn-secondary">Ver registros</button></div>
@@ -192,12 +190,12 @@
   </div>
 
   <script src="js/utils.js?v=22"></script>
-  <script src="js/api.js?v=26"></script>
+  <script src="js/api.js?v=27"></script>
   <script src="js/autocomplete.js?v=24"></script>
   <script src="js/reglas.js?v=25"></script>
   <script src="js/menu.js?v=22"></script>
   <script src="js/recentTable.js?v=32"></script>
   <script src="js/formBuilder.js?v=26"></script>
-  <script src="js/app.js?v=34"></script>
+  <script src="js/app.js?v=35"></script>
 </body>
 </html>

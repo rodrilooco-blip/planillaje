@@ -21,7 +21,10 @@ const API = {
 
   getColumnas(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/columnas`); },
   getRegistros(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}`); },
-  getDashboardResumen() { return this.fetchJSON(`${Utils.API_BASE}/planos/dashboard/resumen`); },
+  getDashboardResumen(mes) {
+    const query = mes ? `?mes=${encodeURIComponent(mes)}` : '';
+    return this.fetchJSON(`${Utils.API_BASE}/planos/dashboard/resumen${query}`);
+  },
   getNextNumero(tipo, hoja) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/next-numero`); },
   getRegistro(tipo, hoja, fila) { return this.fetchJSON(`${Utils.API_BASE}/planos/${tipo}/${hoja}/${fila}`); },
 

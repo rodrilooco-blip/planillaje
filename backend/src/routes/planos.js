@@ -114,11 +114,30 @@ router.get('/dashboard/resumen', lecturas, async (req, res) => {
     }
     try {
       const hojas = config.hojas[tipo];
-      const rangos = await sheets.leerHojas(sheetId, hojas);
-      const total = rangos.reduce((suma, filas) => suma + filas.slice(1).filter(fila =>
+      const contar = filas => filas.slice(1).filter(fila =>
         fila.some(valor => String(valor ?? '').trim() !== '')
-      ).length, 0);
-      resumen[tipo] = { total, estado: 'ok' };
+      ).length;
+      try {
+        const rangos = await sheets.leerHojas(sheetId, hojas);
+        const total = rangos.reduce((suma, filas) => suma + contar(filas), 0);
+        resumen[tipo] = { total, estado: 'ok' };
+      } catch (batchError) {
+        // Una hoja ausente o con permisos distintos no debe ocultar los conteos
+        // de las demás hojas del módulo (en particular, Emergencia).
+        const resultados = await Promise.all(hojas.map(async hoja => {
+          try {
+            return { total: contar(await sheets.leerSheet(sheetId, `${hoja}!A:ZZZ`)), error: false };
+          } catch (error) {
+            return { total: 0, error: true };
+          }
+        }));
+        const disponibles = resultados.filter(resultado => !resultado.error).length;
+        if (!disponibles) throw batchError;
+        resumen[tipo] = {
+          total: resultados.reduce((suma, resultado) => suma + resultado.total, 0),
+          estado: disponibles === hojas.length ? 'ok' : 'parcial',
+        };
+      }
     } catch (error) {
       resumen[tipo] = { total: null, estado: 'no-disponible' };
     }

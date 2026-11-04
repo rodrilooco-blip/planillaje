@@ -96,7 +96,6 @@ const App = {
     document.getElementById('monthSelect').value = codigo || '';
     this.actualizarEtiquetaMes(mes);
     this.actualizarIndicadorDrive(mes);
-    this.actualizarEstadoArchivosDashboard(mes);
     this.actualizarResumenDashboard();
     if (this.currentView === 'module' && FormBuilder.currentHoja) {
       this.onSelectHoja(FormBuilder.currentTipo, FormBuilder.currentHoja);
@@ -110,16 +109,6 @@ const App = {
     if (label) label.textContent = mes ? (mes.nombre || mes.codigo) : 'Sin mes seleccionado';
   },
 
-  actualizarEstadoArchivosDashboard(mes) {
-    const estadoEmergencia = document.getElementById('dashboardEmergFileStatus');
-    const estadoHosp = document.getElementById('dashboardHospFileStatus');
-    if (!estadoEmergencia || !estadoHosp) return;
-    estadoEmergencia.textContent = mes?.emerg_sheet_id ? 'Archivo enlazado' : 'Selecciona o crea una hoja';
-    estadoHosp.textContent = mes?.hosp_sheet_id ? 'Archivo enlazado' : 'Selecciona o crea una hoja';
-    estadoEmergencia.classList.toggle('is-ready', Boolean(mes?.emerg_sheet_id));
-    estadoHosp.classList.toggle('is-ready', Boolean(mes?.hosp_sheet_id));
-  },
-
   async actualizarResumenDashboard() {
     const elementos = {
       emergencia: [document.getElementById('dashboardEmergencyCount'), document.getElementById('dashboardEmergencyCountLabel')],
@@ -127,14 +116,15 @@ const App = {
     };
     const mesSolicitado = window.mesActual || '';
     try {
-      const respuesta = await API.getDashboardResumen();
+      const respuesta = await API.getDashboardResumen(mesSolicitado);
       if (mesSolicitado !== (window.mesActual || '')) return;
       for (const tipo of Object.keys(elementos)) {
         const [valor, label] = elementos[tipo];
         const dato = respuesta.resumen?.[tipo];
-        valor.textContent = dato?.estado === 'ok' ? Number(dato.total || 0).toLocaleString('es-EC') : '—';
+        valor.textContent = ['ok', 'parcial'].includes(dato?.estado) ? Number(dato.total || 0).toLocaleString('es-EC') : '—';
         label.textContent = dato?.estado === 'ok' ? 'Registros del mes' :
-          (dato?.estado === 'sin-archivo' ? 'Sin archivo enlazado' : 'Total no disponible');
+          (dato?.estado === 'parcial' ? 'Registros contados; revisar hojas' :
+          (dato?.estado === 'sin-archivo' ? 'Sin archivo enlazado' : 'Total no disponible'));
       }
     } catch (error) {
       for (const [valor, label] of Object.values(elementos)) {
@@ -309,11 +299,11 @@ const App = {
           (!(resp.mes.emerg_sheet_id || resp.mes.emergSheetId) ? 'emergencia' : '');
         if (faltante) await this.abrirArchivosMes(resp.mes.codigo, faltante);
       }
-      if (btn) { btn.disabled = false; btn.textContent = '+'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Crear mes'; }
     } catch (err) {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al crear mes: ' + err.message);
       const btn = document.getElementById('btnNuevoMes');
-      if (btn) { btn.disabled = false; btn.textContent = '+'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Crear mes'; }
     }
   },
 
@@ -351,17 +341,19 @@ const App = {
     document.getElementById('btnCambiarMedico')?.addEventListener('click', () => this.solicitarCambioMedico());
     document.getElementById('btnDashboardEmergencia')?.addEventListener('click', () => this.abrirModulo('emergencia'));
     document.getElementById('btnDashboardHospitalizacion')?.addEventListener('click', () => this.abrirModulo('hospitalizacion'));
-    document.getElementById('btnDashboardEmergFiles')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual, 'emergencia'));
-    document.getElementById('btnDashboardHospFiles')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual, 'hospitalizacion'));
     document.getElementById('btnDashboardNuevo')?.addEventListener('click', () => this.abrirModulo('emergencia'));
     document.getElementById('btnDashboardNuevoHosp')?.addEventListener('click', () => this.abrirModulo('hospitalizacion'));
     document.getElementById('btnDashboardRecientes')?.addEventListener('click', () => this.abrirRecientes());
     document.getElementById('btnSidebarInicio')?.addEventListener('click', () => this.volverInicio());
-    document.getElementById('btnSidebarNuevo')?.addEventListener('click', () => this.iniciarRegistroRapido());
     document.getElementById('btnSidebarRecientes')?.addEventListener('click', () => this.abrirRecientes());
-    document.getElementById('btnSidebarArchivos')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
-    document.getElementById('btnDashboardArchivos')?.addEventListener('click', () => this.abrirArchivosMes(window.mesActual));
-    document.getElementById('btnSidebarExportar')?.addEventListener('click', () => this.exportarExcel());
+    document.getElementById('btnSidebarConfiguracion')?.addEventListener('click', event => {
+      const button = event.currentTarget;
+      const options = document.getElementById('sidebarConfigOptions');
+      const expanded = button.getAttribute('aria-expanded') === 'true';
+      button.setAttribute('aria-expanded', String(!expanded));
+      options.hidden = expanded;
+      button.classList.toggle('open', !expanded);
+    });
     document.getElementById('monthFileType')?.addEventListener('change', () => {
       document.getElementById('monthFileExisting').value = '';
       document.getElementById('btnGuardarArchivoMes').textContent = 'Guardar archivo';
@@ -419,7 +411,7 @@ const App = {
     } catch (err) {
       Utils.mostrarAlerta(document.getElementById('formMessages'), 'error', 'Error al redescubrir: ' + err.message);
     } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '&#x1F50D;'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Buscar meses en Drive'; }
     }
   },
 
